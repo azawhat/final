@@ -1,16 +1,17 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
-require("dotenv").config(); // Load environment variables
+
+require("dotenv").config();
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT;
 
 // Middleware
 app.use(express.json());
 
 // MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://azamat:azamat@seeyadb.wkawg.mongodb.net/SeeYaDB?retryWrites=true&w=majority";
+const MONGO_URI = process.env.MONGO_URI;
 
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,

@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const MONGO_URI = "mongodb+srv://azamat:azamat@seeyadb.wkawg.mongodb.net/SeeYaDB?retryWrites=true&w=majority";
+const MONGO_URI = "";
 
 const connectDB = async () => {
   try {
