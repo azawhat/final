@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const ClubSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String },
-  picture: { type: Buffer }, // Store club image as byte code
+  clubPicture: { type: Buffer }, 
   isClosed: {type: Boolean, default: false},
   creatorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

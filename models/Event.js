@@ -4,7 +4,7 @@ const EventSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String },
   category: { type: String },
-  picture: { type: Buffer }, // Store event image as byte code
+  eventPicture: { type: Buffer }, 
   isClosed: {type: Boolean, default: false},
   creatorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
