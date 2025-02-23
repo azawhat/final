@@ -4,14 +4,24 @@ const EventSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String },
   category: { type: String },
-  eventPicture: { type: Buffer }, 
-  isClosed: {type: Boolean, default: false},
-  creatorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  eventPicture: { type: String}, 
+  isClosed: { type: Boolean, default: false },
+  creator: { 
+    _id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    name: { type: String, required: true },
+    surname: { type: String, required: true },
+    username: { type: String, required: true },
+  },
+  participants: [{ 
+    _id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    name: { type: String, required: true },
+    surname: { type: String, required: true },
+    username: { type: String, required: true },
+  }],
   maxParticipants: { type: Number },
   location: { type: String },
-  startDate: { type: Date, required: true },
-  endDate: { type: Date, required: true },
+  startDate: { type: Date },
+  endDate: { type: Date},
   createdAt: { type: Date, default: Date.now }
 });
 

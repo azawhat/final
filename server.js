@@ -8,14 +8,9 @@ const PORT = process.env.PORT;
 
 // Middleware
 app.use(express.json());
+app.use(bodyParser.json());
 
-// MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI;
-
-mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected Successfully"))
   .catch(err => console.error("MongoDB Connection Error:", err));
 
@@ -24,12 +19,14 @@ const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const clubRoutes = require("./routes/clubRoutes");
 const authRoutes = require("./routes/authRoutes")
+
 // Use Routes
 app.use("/users", userRoutes);
 app.use("/events", eventRoutes);
 app.use("/clubs", clubRoutes);
 app.use("/auth", authRoutes);
+
 // Start Server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
