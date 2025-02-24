@@ -17,17 +17,17 @@ router.get("/", async (req, res) => {
   }
 });
 
-//Create an event
 router.post("/create", authMiddleware, async (req, res) => {
   try {
+    console.log("Received event data:", req.body); // ЛОГ ДЛЯ ОТЛАДКИ
 
     const creatorId = req.user._id; 
+    const { name, description, category, location, eventPicture, eventRating, participantId, startDate, endDate } = req.body;
 
-    const { name, description, category, location, eventPicture, eventRating, participantId } = req.body;
-
-    if (!name || !description || !category|| !location) {
-      return res.status(400).json({ message: "All fields are required." });
+    if (!name || !description || !category || !location || !startDate) {
+      return res.status(400).json({ message: "All fields, including startDate, are required." });
     }
+
     const user = await User.findById(creatorId);
     if (!user) return res.status(404).json({ message: "Creator not found" });
 
@@ -45,15 +45,17 @@ router.post("/create", authMiddleware, async (req, res) => {
       surname: p.surname,
       username: p.username,
     }));
-    
+
     const event = new Event({ 
       name, 
       description, 
       category, 
       location, 
       eventRating,
-      participants: participantData,
       eventPicture,
+      startDate: new Date(startDate), // 💡 ПРОВЕРЬ, ЧТО startDate - ЭТО ДАТА
+      endDate: endDate ? new Date(endDate) : undefined, // 💡 ТО ЖЕ САМОЕ С endDate
+      participants: participantData,
       creator: {
         _id: user._id,
         name: user.name,
@@ -63,22 +65,13 @@ router.post("/create", authMiddleware, async (req, res) => {
     });
 
     await event.save();
-
-    // Add event to the creator's visitedEvents
-    await User.findByIdAndUpdate(creatorId, { $addToSet: { visitedEvents: event._id } });
-
-    // Add event to participants' visitedEvents
-    await User.updateMany(
-      { _id: { $in: participants.map(p => p._id) } },
-      { $addToSet: { visitedEvents: event._id } }
-    );
-
     res.status(201).json(event);
   } catch (error) {
     console.error("Error creating event:", error);
     res.status(400).json({ error: error.message });
   }
 });
+
 
 
 
@@ -116,7 +109,7 @@ router.delete("/delete-event/:eventId/:userId", async (req, res) => {
 
     // Check if the requesting user is the creator of the event
     if (event.creator._id.toString() !== userId) {
-      return res.status(403).json({ error: "Unauthorized: Only the creator can delete this event." });
+      return res.status(403).json({ error: "Unauthorized: Only the creaоtor can delete this event." });
     }
     await User.updateMany({}, { $pull: { registeredEvents: eventId } });
 
