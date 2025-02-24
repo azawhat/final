@@ -74,7 +74,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-
+//get users clubs
 router.get("/user/", async (req, res) => {
   const { userId } = req.params;
 
@@ -90,6 +90,65 @@ router.get("/user/", async (req, res) => {
     res.status(200).json(clubs);
   } catch (error) {
     console.error("Error fetching clubs:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+router.post("/join/:clubId", authMiddleware, async (req, res) => {
+  try {
+    const { clubId } = req.params;
+    const userId = req.user._id; // Extracted from JWT
+
+    if (!mongoose.Types.ObjectId.isValid(clubId)) {
+      return res.status(400).json({ error: "Invalid clubId." });
+    }
+
+    // Find the club
+    const club = await Club.findById(clubId);
+    if (!club) {
+      return res.status(404).json({ error: "Club not found." });
+    }
+
+    // Check if the club is closed
+    if (club.isClosed) {
+      return res.status(403).json({ error: "This club is closed for new members." });
+    }
+
+    // Prevent creator from joining as a participant
+    if (club.creator._id.toString() === userId) {
+      return res.status(400).json({ error: "You cannot join your own club." });
+    }
+
+    // Check if user is already a participant
+    const isParticipant = club.participants.some(
+      (participant) => participant._id.toString() === userId
+    );
+    if (isParticipant) {
+      return res.status(400).json({ error: "You are already in this club." });
+    }
+
+    // Fetch user details
+    const user = await User.findById(userId).select("username surname name");
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    // Add user to participants
+    club.participants.push({
+      _id: user._id,
+      name: user.name,
+      surname: user.surname,
+      username: user.username,
+    });
+
+    await club.save();
+
+    // Add club to user's joined clubs
+    await User.findByIdAndUpdate(userId, { $addToSet: { joinedClubs: club._id } });
+
+    res.status(200).json({ message: "Successfully joined the club.", club });
+  } catch (error) {
+    console.error("Error joining club:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 });
