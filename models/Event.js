@@ -22,8 +22,8 @@ const EventSchema = new mongoose.Schema({
   }],
   maxParticipants: { type: Number },
   location: { type: String },
-  startDate: { type: Date },
-  endDate: { type: Date },
+  startDate: { type: String },
+  endDate: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 

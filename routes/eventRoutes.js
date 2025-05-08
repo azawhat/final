@@ -22,55 +22,18 @@ router.post("/create", authMiddleware, async (req, res) => {
     console.log("Received event data:", req.body);
     const creatorId = req.user._id;
     const { name, description, category, location, eventPicture, eventRating, participantId, startDate, endDate } = req.body;
-    
+
     if (!name || !description || !location || !startDate) {
       return res.status(400).json({ message: "Required fields missing" });
     }
 
-    // Parse complex date objects
-    let parsedStartDate;
-    let parsedEndDate;
-    
-    // Handle the complex date object format
-    if (startDate && typeof startDate === 'object' && startDate.date && startDate.time) {
-      const { date, time } = startDate;
-      parsedStartDate = new Date(
-        date.year, 
-        date.month - 1, // JavaScript months are 0-indexed
-        date.day,
-        time.hour,
-        time.minute,
-        time.second,
-        time.nano ? time.nano / 1000000 : 0 // Convert nano to milliseconds
-      );
-    } else {
-      // Try standard date parsing as fallback
-      parsedStartDate = new Date(startDate);
-    }
-    
-    // Similar handling for endDate if it exists
-    if (endDate && typeof endDate === 'object' && endDate.date && endDate.time) {
-      const { date, time } = endDate;
-      parsedEndDate = new Date(
-        date.year, 
-        date.month - 1, // JavaScript months are 0-indexed
-        date.day,
-        time.hour,
-        time.minute,
-        time.second,
-        time.nano ? time.nano / 1000000 : 0
-      );
-    } else if (endDate) {
-      parsedEndDate = new Date(endDate);
-    } else {
-      parsedEndDate = undefined;
-    }
-    
-    // Check if dates are valid
+    const parsedStartDate = new Date(startDate);
+    const parsedEndDate = endDate ? new Date(endDate) : undefined;
+
     if (isNaN(parsedStartDate.getTime())) {
       return res.status(400).json({ message: "Invalid startDate format", receivedValue: startDate });
     }
-    
+
     if (endDate && isNaN(parsedEndDate.getTime())) {
       return res.status(400).json({ message: "Invalid endDate format", receivedValue: endDate });
     }
@@ -93,7 +56,6 @@ router.post("/create", authMiddleware, async (req, res) => {
       username: p.username,
     }));
 
-    // Create new event using the properly parsed dates
     const event = new Event({
       name,
       description,
@@ -120,6 +82,7 @@ router.post("/create", authMiddleware, async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+
 
 // Get specific event
 router.get("/:eventId", async (req, res) => {
