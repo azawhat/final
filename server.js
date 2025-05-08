@@ -22,12 +22,14 @@ const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
 const clubRoutes = require("./routes/clubRoutes");
 const authRoutes = require("./routes/authRoutes")
+const searchRoutes = require('./routes/searchRoutes');
 
 // Use Routes
 app.use("/users", userRoutes);
 app.use("/events", eventRoutes);
 app.use("/clubs", clubRoutes);
 app.use("/auth", authRoutes);
+app.use('/search', searchRoutes);
 
 // Start Server
 app.listen(PORT, () => {
