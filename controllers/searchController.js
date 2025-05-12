@@ -29,8 +29,6 @@ exports.searchUsers = async (req, res) => {
       .limit(5);
   
       return res.status(200).json({
-        success: true,
-        count: users.length,
         data: users
       });
     } catch (error) {
@@ -60,8 +58,6 @@ exports.searchEvents = async (req, res) => {
       }).limit(5);
   
       return res.status(200).json({
-        success: true,
-        count: events.length,
         data: events
       });
     } catch (error) {
@@ -92,8 +88,6 @@ exports.searchClubs = async (req, res) => {
       }).limit(5);
   
       return res.status(200).json({
-        success: true,
-        count: clubs.length,
         data: clubs
       });
     } catch (error) {
