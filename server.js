@@ -1,3 +1,5 @@
+//server,js
+
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
@@ -11,7 +13,7 @@ app.use(express.json());
 app.use(bodyParser.json());
 
 const cors = require('cors');
-app.use(cors()); // Разрешает доступ с других устройств в сети
+app.use(cors());
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected Successfully"))

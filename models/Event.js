@@ -5,6 +5,7 @@ const EventSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String },
   category: { type: String }, 
+  tags: { type: String },
   eventPicture: { type: String },
   isOpen: { type: Boolean, default: true },
   eventRating: { type: Number },
