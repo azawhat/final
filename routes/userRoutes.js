@@ -115,4 +115,6 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
   }
 });
 
+
+
 module.exports = router;

@@ -25,7 +25,6 @@ const eventRoutes = require("./routes/eventRoutes");
 const clubRoutes = require("./routes/clubRoutes");
 const authRoutes = require("./routes/authRoutes")
 const searchRoutes = require('./routes/searchRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
 
 // Use Routes
 app.use("/users", userRoutes);
@@ -33,7 +32,6 @@ app.use("/events", eventRoutes);
 app.use("/clubs", clubRoutes);
 app.use("/auth", authRoutes);
 app.use('/search', searchRoutes);
-app.use('/api/notifications', notificationRoutes);
 
 // Start Server
 app.listen(PORT, () => {

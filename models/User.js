@@ -14,22 +14,22 @@ const UserSchema = new mongoose.Schema({
   visitedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
   joinedClubs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Club" }], 
   createdAt: { type: Date, default: Date.now},
-  // Email confirmation fields
-  isEmailConfirmed: { type: Boolean, default: false },
-  confirmationToken: { type: String },
-  confirmationTokenExpires: { type: Date }
+  // Email verification fields
+  isEmailVerified: { type: Boolean, default: false },
+  verificationCode: { type: String },
+  verificationCodeExpires: { type: Date }
 });
 
-// Method to generate confirmation token
-UserSchema.methods.generateConfirmationToken = function() {
-  // Generate a random token
-  const confirmationToken = crypto.randomBytes(32).toString('hex');
+// Method to generate verification code
+UserSchema.methods.generateVerificationCode = function() {
+  // Generate a 6-digit numeric code
+  const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
   
-  // Set the token and expiration (24 hours)
-  this.confirmationToken = confirmationToken;
-  this.confirmationTokenExpires = Date.now() + 24 * 60 * 60 * 1000;
+  // Set the code and expiration (30 minutes)
+  this.verificationCode = verificationCode;
+  this.verificationCodeExpires = Date.now() + 30 * 60 * 1000;
   
-  return confirmationToken;
+  return verificationCode;
 };
 
 module.exports = mongoose.model("User", UserSchema);
