@@ -19,14 +19,30 @@ router.get("/", async (req, res) => {
 // Complete fixed event creation route handler
 router.post("/create", authMiddleware, async (req, res) => {
   try {
-    console.log("Received event data:", req.body);
     const creatorId = req.user._id;
-    const { name, description, category, location, eventPicture, eventRating, participantId, startDate, endDate } = req.body;
+    const {
+      name,
+      description,
+      category,
+      tags,
+      eventPicture,
+      eventPosts, // corrected from eventPosrs
+      eventProgramme,
+      isOpen,
+      eventRating,
+      location,
+      participantId,
+      maxParticipants,
+      startDate,
+      endDate
+    } = req.body;
 
+    // Validate required fields
     if (!name || !description || !location || !startDate) {
       return res.status(400).json({ message: "Required fields missing" });
     }
 
+    // Parse dates
     const parsedStartDate = new Date(startDate);
     const parsedEndDate = endDate ? new Date(endDate) : undefined;
 
@@ -38,9 +54,11 @@ router.post("/create", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "Invalid endDate format", receivedValue: endDate });
     }
 
+    // Find creator
     const user = await User.findById(creatorId);
     if (!user) return res.status(404).json({ message: "Creator not found" });
 
+    // Handle participants
     let participants = [];
     if (Array.isArray(participantId)) {
       participants = await User.find({ _id: { $in: participantId } });
@@ -56,13 +74,19 @@ router.post("/create", authMiddleware, async (req, res) => {
       username: p.username,
     }));
 
+    // Create new event
     const event = new Event({
       name,
       description,
       category,
-      location,
-      eventRating,
+      tags,
       eventPicture,
+      eventPosts,        // corrected
+      eventProgramme,
+      isOpen: isOpen !== undefined ? isOpen : true,
+      eventRating,
+      location,
+      maxParticipants,
       startDate: parsedStartDate,
       endDate: parsedEndDate,
       participants: participantData,
@@ -75,13 +99,13 @@ router.post("/create", authMiddleware, async (req, res) => {
     });
 
     await event.save();
-    console.log("Event created successfully:", event);
     res.status(201).json(event);
   } catch (error) {
     console.error("Error creating event:", error);
     res.status(400).json({ error: error.message });
   }
 });
+
 
 
 // Get specific event

@@ -7,6 +7,8 @@ const EventSchema = new mongoose.Schema({
   category: { type: String }, 
   tags: { type: String },
   eventPicture: { type: String },
+  eventPosts : { type: String },
+  eventProgramme: { type: String },
   isOpen: { type: Boolean, default: true },
   eventRating: { type: Number },
   creator: {
@@ -16,7 +18,7 @@ const EventSchema = new mongoose.Schema({
     username: { type: String, required: true },
   },
   participants: [{
-    _id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    _id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     name: { type: String, required: true },
     surname: { type: String, required: true },
     username: { type: String, required: true },

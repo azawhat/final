@@ -10,6 +10,7 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true }, 
   isAdmin: { type: Boolean, default: false },
   profilePicture: { type: Buffer },
+  interestedTags: { type: String},
   visitedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
   joinedClubs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Club" }], 
   createdAt: { type: Date, default: Date.now},
