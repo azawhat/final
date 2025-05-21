@@ -9,44 +9,98 @@ const { sendVerificationCode } = require("../config/emailConfig");
 
 const router = express.Router();
 
-// Register User
 router.post("/register", async (req, res) => {
   try {
-    const { name, surname, username, email, password } = req.body;
+    const { email, name, surname, username, password } = req.body;
 
-    let user = await User.findOne({ email });
-    if (user) return res.status(400).json({ error: "User already exists" });
+    if (!email || !name || !surname || !username || !password) {
+      return res.status(400).json({
+        success: false,
+        error: "All fields are required"
+      });
+    }
+
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found"
+      });
+    }
+    
+    if (!user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        error: "Email must be verified before completing registration"
+      });
+    }
+
+    const existingUsername = await User.findOne({ 
+      username, 
+      _id: { $ne: user._id } 
+    });
+    
+    if (existingUsername) {
+      return res.status(400).json({
+        success: false,
+        error: "Username already taken"
+      });
+    }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-
-    user = new User({ 
-      name, 
-      surname, 
-      username, 
-      email, 
-      password: hashedPassword 
-    });
-
-    // Generate verification code
-    const verificationCode = user.generateVerificationCode();
+    
+    user.name = name;
+    user.surname = surname;
+    user.username = username;
+    user.password = hashedPassword;
     
     await user.save();
 
-    // Send verification code email
+    res.status(200).json(true);
+    console.log("User registered successfully");
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json(false);
+  }
+});
+
+router.post("/verify/email", async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json(false);
+    }
+
+    let user = await User.findOne({ email });
+    
+    if (user) {
+      return res.status(400).json(false);
+    }
+    
+    user = new User({ 
+      email,
+      name: "Pending",
+      surname: "Pending",
+      username: `user_${Date.now().toString().slice(-6)}`,
+      password: 1
+    });
+    
+    const verificationCode = user.generateVerificationCode();
+    await user.save();
+    
     const emailSent = await sendVerificationCode(user, verificationCode);
     
     if (emailSent) {
-      res.status(201).json({ 
-        message: "User registered successfully. Please check your email for the verification code." 
-      });
+      res.status(200).json(true);
     } else {
-      res.status(500).json({ 
-        message: "User registered, but there was a problem sending the verification email. Please try again later." 
-      });
+      res.status(500).json(false);
     }
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Send verification code error:", error);
+    res.status(500).json(false);
   }
 });
 
@@ -56,10 +110,7 @@ router.post("/verify/code", async (req, res) => {
     const { email, code } = req.body;
     
     if (!email || !code) {
-      return res.status(400).json({
-        success: false,
-        error: "Email and verification code are required"
-      });
+      return res.status(400).json(false);
     }
 
     const user = await User.findOne({
@@ -69,29 +120,21 @@ router.post("/verify/code", async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid or expired verification code. Please request a new code."
-      });
+      return res.status(400).json(false);
     }
     user.isEmailVerified = true;
     user.verificationCode = undefined;
     user.verificationCodeExpires = undefined;
     await user.save();
 
-    res.status(200).json({
-      success: true,
-      message: "Email verified successfully. You can now log in.",
-      userId: user._id
-    });
+    res.status(200).json(true);
   } catch (error) {
     console.error("Verification error:", error);
-    res.status(500).json({
-      success: false,
-      error: "An error occurred during verification. Please try again."
-    });
+    res.status(500).json(false);
   }
 });
+
+
 
 // Resend verification code
 router.post("/resend-verification", async (req, res) => {
@@ -145,25 +188,6 @@ router.get("/check-username/:username", async (req, res) => {
   }
 });
 
-router.get("/verify/email/:email", async (req, res) => {
-  try {
-    const { email } = req.params;
-    
-    // Check if email exists
-    const existingUser = await User.findOne({ email: email });
-    
-    if (existingUser) {
-      return res.status(200).json(false);
-    }
-    
-    // Email is available
-    return res.status(200).json(true);
-  } catch (error) {
-    console.error("Error checking email availability:", error);
-    res.status(500).json(false);
-  }
-});
-
 // Login User
 router.post("/login", async (req, res) => {
   try {
@@ -184,6 +208,15 @@ router.post("/login", async (req, res) => {
         error: "Please verify your email before logging in",
         needsVerification: true,
         email: user.email 
+      });
+    }
+
+    // Check if registration is complete
+    if (user.name === "Pending" || user.surname === "Pending") {
+      return res.status(401).json({
+        error: "Please complete your registration",
+        needsCompletion: true,
+        userId: user._id
       });
     }
 
