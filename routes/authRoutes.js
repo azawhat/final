@@ -133,22 +133,15 @@ router.get("/check-username/:username", async (req, res) => {
     const existingUser = await User.findOne({ username: username });
     
     if (existingUser) {
-      return res.status(200).json({ 
-        isAvailable: false, 
-      });
+      return res.status(200).json(false);
     }
     
     // Username is available
-    return res.status(200).json({ 
-      isAvailable: true, 
-    });
+    return res.status(200).json(true);
     
   } catch (error) {
     console.error("Error checking username availability:", error);
-    res.status(500).json({ 
-      available: false, 
-      error: "Internal server error." 
-    });
+    res.status(500).json(false);
   }
 });
 
@@ -160,21 +153,14 @@ router.get("/verify/email/:email", async (req, res) => {
     const existingUser = await User.findOne({ email: email });
     
     if (existingUser) {
-      return res.status(200).json({
-        isAvailable: false,
-      });
+      return res.status(200).json(false);
     }
     
     // Email is available
-    return res.status(200).json({
-      isAvailable: true,
-    });
+    return res.status(200).json(true);
   } catch (error) {
     console.error("Error checking email availability:", error);
-    res.status(500).json({
-      isAvailable: false,
-      error: "Internal server error."
-    });
+    res.status(500).json(false);
   }
 });
 
