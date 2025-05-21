@@ -9,10 +9,10 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true }, 
   isAdmin: { type: Boolean, default: false },
-  profilePicture: { type: Buffer },
-  interestedTags: { type: String},
+  profilePicture: { type: String },
+  interestedTags: { type: [String] },
   createdAt: { type: Date, default: Date.now},
-  
+
   // User preferences
   rating: { type: Number},
   visitedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
