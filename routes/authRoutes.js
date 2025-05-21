@@ -11,7 +11,7 @@ const router = express.Router();
 
 router.post("/register", async (req, res) => {
   try {
-    const { email, name, surname, username, password } = req.body;
+    const { email, name, surname, username, password, interestedTags } = req.body;
 
     if (!email || !name || !surname || !username || !password) {
       return res.status(400).json({
@@ -37,8 +37,8 @@ router.post("/register", async (req, res) => {
     }
 
     const existingUsername = await User.findOne({ 
-      username, 
-      _id: { $ne: user._id } 
+      username,
+      _id: { $ne: user._id }
     });
     
     if (existingUsername) {
@@ -48,6 +48,7 @@ router.post("/register", async (req, res) => {
       });
     }
 
+    // Update user information
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     
@@ -56,11 +57,13 @@ router.post("/register", async (req, res) => {
     user.username = username;
     user.password = hashedPassword;
     
+    if (interestedTags && Array.isArray(interestedTags)) {
+      user.interestedTags = interestedTags;
+    }
+    
     await user.save();
 
-    res.status(200).json({
-      success
-    });
+    res.status(200).json(true);
     console.log("User registered successfully");
   } catch (error) {
     console.error("Registration error:", error);
