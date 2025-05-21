@@ -51,10 +51,17 @@ router.post("/register", async (req, res) => {
 });
 
 // Verify Email with Code
-router.post("/verify", async (req, res) => {
+router.post("/verify/code", async (req, res) => {
   try {
     const { email, code } = req.body;
     
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        error: "Email and verification code are required"
+      });
+    }
+
     const user = await User.findOne({
       email,
       verificationCode: code,
@@ -62,21 +69,27 @@ router.post("/verify", async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ 
-        error: "Invalid or expired verification code. Please request a new code." 
+      return res.status(400).json({
+        success: false,
+        error: "Invalid or expired verification code. Please request a new code."
       });
     }
-
-    // Verify user's email
     user.isEmailVerified = true;
     user.verificationCode = undefined;
     user.verificationCodeExpires = undefined;
-    
     await user.save();
 
-    res.status(200).json({ message: "Email verified successfully. You can now log in." });
+    res.status(200).json({
+      success: true,
+      message: "Email verified successfully. You can now log in.",
+      userId: user._id
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Verification error:", error);
+    res.status(500).json({
+      success: false,
+      error: "An error occurred during verification. Please try again."
+    });
   }
 });
 
@@ -109,6 +122,59 @@ router.post("/resend-verification", async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/check-username/:username", async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    // if username exists
+    const existingUser = await User.findOne({ username: username });
+    
+    if (existingUser) {
+      return res.status(200).json({ 
+        isAvailable: false, 
+      });
+    }
+    
+    // Username is available
+    return res.status(200).json({ 
+      isAvailable: true, 
+    });
+    
+  } catch (error) {
+    console.error("Error checking username availability:", error);
+    res.status(500).json({ 
+      available: false, 
+      error: "Internal server error." 
+    });
+  }
+});
+
+router.get("/verify/email/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    // Check if email exists
+    const existingUser = await User.findOne({ email: email });
+    
+    if (existingUser) {
+      return res.status(200).json({
+        isAvailable: false,
+      });
+    }
+    
+    // Email is available
+    return res.status(200).json({
+      isAvailable: true,
+    });
+  } catch (error) {
+    console.error("Error checking email availability:", error);
+    res.status(500).json({
+      isAvailable: false,
+      error: "Internal server error."
+    });
   }
 });
 
@@ -157,5 +223,6 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 module.exports = router;
