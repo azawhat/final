@@ -4,14 +4,46 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const authMiddleware = require("../middleware/authMiddleware");
 const router = express.Router();
+const axios = require("axios");
 
 // Get all events
 router.get("/", async (req, res) => {
   try {
+    const userId = req.query.userId; // передаём userId как параметр
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const allUsers = await User.find();
     const events = await Event.find();
-    res.status(200).json(events);
+
+    const response = await axios.post("http://localhost:5000/recommend", {
+      currentUser: {
+        id: user._id.toString(),
+        interestedTags: user.interestedTags || [],
+        registeredEvents: user.registeredEvents || [],
+      },
+      allUsers: allUsers.map(u => ({
+        id: u._id.toString(),
+        registeredEvents: u.registeredEvents || [],
+      })),
+      events: events.map(e => ({
+        id: e._id.toString(),
+        tags: e.tags || [],
+        eventRating: e.eventRating || 0,
+      })),
+    });
+
+    const sorted = response.data;
+
+    // Присоединим полные данные к отсортированным ID
+    const sortedFull = sorted.map(sortedEvent => {
+      const fullEvent = events.find(e => e._id.toString() === sortedEvent.id);
+      return { ...fullEvent._doc, score: sortedEvent.score };
+    });
+
+    res.json(sortedFull);
   } catch (error) {
-    console.error("Error fetching events:", error);
+    console.error("Error fetching recommended events:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 });
