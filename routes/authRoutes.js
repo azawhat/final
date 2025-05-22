@@ -11,7 +11,7 @@ const router = express.Router();
 
 router.post("/register", async (req, res) => {
   try {
-    const { email, name, surname, username, password, interestedTags } = req.body;
+    const { email, name, surname, username, password, interestedTags, profilePicture } = req.body;
 
     if (!email || !name || !surname || !username || !password) {
       return res.status(400).json({
@@ -56,6 +56,7 @@ router.post("/register", async (req, res) => {
     user.surname = surname;
     user.username = username;
     user.password = hashedPassword;
+    user.profilePicture = profilePicture;
     
     if (interestedTags && Array.isArray(interestedTags)) {
       user.interestedTags = interestedTags;
@@ -140,8 +141,6 @@ router.post("/verify/code", async (req, res) => {
 });
 
 
-
-// Resend verification code
 router.post("/resend-verification", async (req, res) => {
   try {
     const { email } = req.body;
