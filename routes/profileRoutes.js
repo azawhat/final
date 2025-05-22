@@ -58,7 +58,6 @@ router.put("/update", authMiddleware, async (req, res) => {
       { $set: updates },
       { new: true, runValidators: true }
     ).select("-password");
-
     if (!updatedUser) {
       return res.status(404).json({ error: "User not found." });
     }

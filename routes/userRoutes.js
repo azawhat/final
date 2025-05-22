@@ -115,6 +115,26 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
   }
 });
 
+router.get("/joinedEvents", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
 
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: "Invalid userId." });
+    }
+
+    // Find events where the user is a participant
+    const events = await Event.find({ "participants._id": userId });
+
+    if (!events.length) {
+      return res.status(404).json({ message: "No joined events found for this user." });
+    }
+
+    res.status(200).json(events);
+  } catch (error) {
+    console.error("Error fetching joined events:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
 
 module.exports = router;

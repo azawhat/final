@@ -5,7 +5,6 @@ const User = require("../models/User");
 const router = express.Router();
 const authMiddleware = require("../middleware/authMiddleware")
 
-// 📌 Create a club
 router.post("/create", authMiddleware, async (req, res) => {
   try {
     const creatorId = req.user._id; 
