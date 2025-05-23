@@ -200,7 +200,6 @@ router.put("/update/:eventId", authMiddleware, async (req, res) => {
   }
 });
 
-
 // Get specific event
 router.get("/:eventId", async (req, res) => {
   try {
@@ -239,5 +238,7 @@ router.delete("/delete-event/:eventId/:userId", async (req, res) => {
     res.status(500).json({ error: "Internal server error." });
   }
 });
+
+
 
 module.exports = router;

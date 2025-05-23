@@ -23,7 +23,7 @@ const clubRoutes = require("./routes/clubRoutes");
 const authRoutes = require("./routes/authRoutes")
 const searchRoutes = require('./routes/searchRoutes');
 const profileRoutes = require("./routes/profileRoutes");
-
+const shareRoutes = require("./routes/shareRoutes");
 // Use Routes
 app.use("/users", userRoutes);
 app.use("/events", eventRoutes);
@@ -31,6 +31,7 @@ app.use("/clubs", clubRoutes);
 app.use("/auth", authRoutes);
 app.use('/search', searchRoutes);
 app.use("/profile", profileRoutes);
+app.use("/share", shareRoutes);
 
 // Start Server
 app.listen(PORT, () => {

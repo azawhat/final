@@ -206,7 +206,6 @@ router.post("/check-attendance", authMiddleware, async (req, res) => {
       username: participant.username,
       surname: participant.surname,
       name: participant.name,
-      checkedInAt: new Date()
     });
 
     await event.save();
