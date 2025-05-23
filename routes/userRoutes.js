@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const Event = require("../models/Event");
 const Club = require("../models/Club");
 const authMiddleware = require("../middleware/authMiddleware");
+const { sendQRCodeEmail } = require("../config/emailConfig");
+const QRCode = require('qrcode');
 const router = express.Router();
 
 
@@ -94,7 +96,7 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "This event is closed for new members." });
     }
 
-    const user = await User.findById(userId).select("username surname name");
+    const user = await User.findById(userId).select("username surname name email");
     if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
@@ -108,12 +110,116 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
 
     await event.save();
 
-    res.status(200).json({ message: "Successfully joined the event.", event });
+    if (event.isOpen) {
+      try {
+        const qrData = JSON.stringify({
+          userId: userId,
+          eventId: eventId,
+          timestamp: new Date().toISOString()
+        });
+
+        const qrCodeImage = await QRCode.toDataURL(qrData);
+
+        const emailSent = await sendQRCodeEmail(user, event, qrCodeImage);
+        
+        if (emailSent) {
+          console.log(`QR code email sent to ${user.email} for event ${event.name}`);
+        } else {
+          console.error(`Failed to send QR code email to ${user.email}`);
+        }
+      } catch (qrError) {
+        console.error("Error generating or sending QR code email:", qrError);
+      }
+    }
+
+    res.status(200).json({ 
+      message: "Successfully joined the event.", 
+      event,
+      qrCodeSent: event.isOpen ? true : false
+    });
   } catch (error) {
     console.error("Error joining event:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 });
+
+router.post("/check-attendance", authMiddleware, async (req, res) => {
+  try {
+    const { qrData } = req.body;
+    const scannerId = req.user.id;
+
+    if (!qrData) {
+      return res.status(400).json({ error: "QR data is required." });
+    }
+
+    let parsedData;
+    try {
+      parsedData = JSON.parse(qrData);
+    } catch (parseError) {
+      return res.status(400).json({ error: "Invalid QR code format." });
+    }
+
+    const { userId, eventId } = parsedData;
+
+    if (!userId || !eventId) {
+      return res.status(400).json({ error: "Invalid QR code data." });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({ error: "Invalid user ID or event ID in QR code." });
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ error: "Event not found." });
+    }
+
+    if (event.creator._id.toString() !== scannerId.toString()) {
+      return res.status(403).json({ error: "Only the event creator can check attendance." });
+    }
+
+    const participantIndex = event.participants.findIndex(
+      (participant) => participant._id.toString() === userId
+    );
+
+    if (participantIndex === -1) {
+      return res.status(400).json({ error: "User is not registered for this event." });
+    }
+
+    const participant = event.participants[participantIndex];
+
+    if (!event.attendance) {
+      event.attendance = [];
+    }
+
+    const isAlreadyAttending = event.attendance.some(
+      (attendee) => attendee._id.toString() === userId
+    );
+
+    if (isAlreadyAttending) {
+      return res.status(400).json({ error: "User attendance already recorded." });
+    }
+
+    event.participants.splice(participantIndex, 1);
+    event.attendance.push({
+      _id: participant._id,
+      username: participant.username,
+      surname: participant.surname,
+      name: participant.name,
+      checkedInAt: new Date()
+    });
+
+    await event.save();
+
+  res.status(200).json(event.attendance);
+
+
+  } catch (error) {
+    console.error("Error checking attendance:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
 
 router.get("/:id", async (req, res) => {
   try {
