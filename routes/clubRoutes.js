@@ -56,7 +56,7 @@ router.post("/create", authMiddleware, async (req, res) => {
       { $addToSet: { joinedClubs: club._id } }
     );
 
-    res.status(201).json(club);
+    res.status(201).json(club._id);
   } catch (error) {
     console.error("Error creating club:", error);
     res.status(400).json({ error: error.message });

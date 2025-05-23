@@ -24,9 +24,9 @@ router.post("/create", authMiddleware, async (req, res) => {
       name,
       description,
       category,
-      tags,
+      eventTags,
       eventPicture,
-      eventPosts, // corrected from eventPosrs
+      eventPosts,
       eventProgramme,
       isOpen,
       eventRating,
@@ -79,9 +79,9 @@ router.post("/create", authMiddleware, async (req, res) => {
       name,
       description,
       category,
-      tags,
+      eventTags,
       eventPicture,
-      eventPosts,        // corrected
+      eventPosts,     
       eventProgramme,
       isOpen: isOpen !== undefined ? isOpen : true,
       eventRating,
