@@ -101,6 +101,20 @@ router.get("/user/", async (req, res) => {
   }
 });
 
+router.get("/:clubId", async (req, res) => {
+  try {
+    const { clubId } = req.params;
+    const club = await Club.findById(clubId);
+    if (!club) {
+      return res.status(404).json({ message: "Club not found" });
+    }
+    res.json(club);
+  } catch (error) {
+    console.error("Error fetching club:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 router.post("/join/:clubId", authMiddleware, async (req, res) => {
   try {
     const { clubId } = req.params;
