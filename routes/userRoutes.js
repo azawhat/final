@@ -101,6 +101,7 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
       return res.status(404).json({ error: "User not found." });
     }
 
+    // Add user to participants
     event.participants.push({
       _id: user._id,
       username: user.username,
@@ -110,8 +111,14 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
 
     await event.save();
 
+    let qrCodeSent = false;
+    let emailError = null;
+
+    // Handle QR code email sending for open events
     if (event.isOpen) {
       try {
+        console.log(`Attempting to send QR code email for event: ${event.name}, user: ${user.email}`);
+        
         const qrData = JSON.stringify({
           userId: userId,
           eventId: eventId,
@@ -119,29 +126,53 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
         });
 
         const qrCodeImage = await QRCode.toDataURL(qrData);
+        console.log('QR code generated successfully');
 
         const emailSent = await sendQRCodeEmail(user, event, qrCodeImage);
         
         if (emailSent) {
-          console.log(`QR code email sent to ${user.email} for event ${event.name}`);
+          console.log(`✓ QR code email sent successfully to ${user.email} for event ${event.name}`);
+          qrCodeSent = true;
         } else {
-          console.error(`Failed to send QR code email to ${user.email}`);
+          console.error(`✗ Failed to send QR code email to ${user.email}`);
+          emailError = "Email sending failed";
         }
       } catch (qrError) {
         console.error("Error generating or sending QR code email:", qrError);
+        emailError = qrError.message;
       }
     }
 
-    res.status(200).json({ 
+    // Always respond with success, but include email status
+    const response = { 
       message: "Successfully joined the event.", 
       event,
-      qrCodeSent: event.isOpen ? true : false
+      qrCodeSent: qrCodeSent,
+      isOpen: event.isOpen
+    };
+
+    // Include email error in response for debugging (optional)
+    if (emailError && event.isOpen) {
+      response.emailWarning = `QR code email could not be sent: ${emailError}`;
+    }
+
+    console.log(`Response being sent:`, {
+      success: true,
+      eventName: event.name,
+      userEmail: user.email,
+      isOpen: event.isOpen,
+      qrCodeSent: qrCodeSent,
+      emailError: emailError
     });
+
+    res.status(200).json(response);
+
   } catch (error) {
     console.error("Error joining event:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 });
+
 
 router.post("/check-attendance", authMiddleware, async (req, res) => {
   try {
