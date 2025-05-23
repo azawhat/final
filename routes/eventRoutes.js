@@ -106,6 +106,99 @@ router.post("/create", authMiddleware, async (req, res) => {
   }
 });
 
+// Update event
+router.put("/update/:eventId", authMiddleware, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const userId = req.user.id;
+    const updates = req.body;
+
+    // Check if event exists and get current event data
+    const existingEvent = await Event.findById(eventId);
+    if (!existingEvent) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    // Check if user is the creator of the event
+    if (!existingEvent.creator || !existingEvent.creator._id) {
+      return res.status(500).json({ message: "Event creator information missing" });
+    }
+    
+    if (existingEvent.creator._id.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Only the event creator can update this event" });
+    }
+
+    // Remove fields that shouldn't be updated directly
+    delete updates._id;
+    delete updates.__v;
+    delete updates.creator;
+    delete updates.createdAt;
+    delete updates.updatedAt;
+
+    // Validate required fields if they exist in updates
+    if (updates.hasOwnProperty('name') && !updates.name) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+    if (updates.hasOwnProperty('description') && !updates.description) {
+      return res.status(400).json({ message: "Description is required" });
+    }
+    if (updates.hasOwnProperty('location') && !updates.location) {
+      return res.status(400).json({ message: "Location is required" });
+    }
+    if (updates.hasOwnProperty('startDate') && !updates.startDate) {
+      return res.status(400).json({ message: "Start date is required" });
+    }
+
+    // Parse and validate dates if they exist in updates
+    if (updates.startDate) {
+      const parsedStartDate = new Date(updates.startDate);
+      if (isNaN(parsedStartDate.getTime())) {
+        return res.status(400).json({ 
+          message: "Invalid startDate format", 
+          receivedValue: updates.startDate 
+        });
+      }
+      updates.startDate = parsedStartDate;
+    }
+
+    if (updates.endDate) {
+      const parsedEndDate = new Date(updates.endDate);
+      if (isNaN(parsedEndDate.getTime())) {
+        return res.status(400).json({ 
+          message: "Invalid endDate format", 
+          receivedValue: updates.endDate 
+        });
+      }
+      updates.endDate = parsedEndDate;
+    }
+
+    // Set default value for isOpen if provided but undefined
+    if (updates.hasOwnProperty('isOpen') && updates.isOpen === undefined) {
+      updates.isOpen = true;
+    }
+
+    // Update the event with all provided fields
+    const updatedEvent = await Event.findByIdAndUpdate(
+      eventId,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedEvent) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    res.json(updatedEvent);
+  } catch (error) {
+    console.error("Error updating event:", error);
+    
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ message: error.message });
+    }
+    
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 
 // Get specific event
