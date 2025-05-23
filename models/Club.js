@@ -6,7 +6,7 @@ const ClubSchema = new mongoose.Schema({
   clubPicture: { type: String }, 
   isOpen: {type: Boolean, default: true},
   category: { type: String },
-  clubTag : { type: [String] },
+  clubTag : { type: String },
   creator: {
     _id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     name: { type: String, required: true },

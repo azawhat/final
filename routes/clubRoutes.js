@@ -7,14 +7,20 @@ const authMiddleware = require("../middleware/authMiddleware")
 
 router.post("/create", authMiddleware, async (req, res) => {
   try {
-    const creatorId = req.user._id; 
-
-    const { name, description, category, clubPicture, participantId } = req.body;
+    const creatorId = req.user._id;
+    const {
+      name,
+      description,
+      clubPicture,
+      isOpen,
+      category,
+      clubTag,
+      participantId
+    } = req.body;
 
     if (!name || !description || !category) {
-      return res.status(400).json({ message: "All fields are required." });
+      return res.status(400).json({ message: "Required fields missing" });
     }
-
     const user = await User.findById(creatorId);
     if (!user) return res.status(404).json({ message: "Creator not found" });
 
@@ -36,8 +42,10 @@ router.post("/create", authMiddleware, async (req, res) => {
     const club = new Club({
       name,
       description,
-      category,
       clubPicture,
+      isOpen: isOpen !== undefined ? isOpen : true,
+      category,
+      clubTag,
       participants: participantData,
       creator: {
         _id: user._id,
@@ -56,7 +64,7 @@ router.post("/create", authMiddleware, async (req, res) => {
       { $addToSet: { joinedClubs: club._id } }
     );
 
-    res.status(201).json(club._id);
+    res.status(201).json(club);
   } catch (error) {
     console.error("Error creating club:", error);
     res.status(400).json({ error: error.message });
