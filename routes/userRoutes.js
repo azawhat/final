@@ -176,28 +176,15 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
 
 router.post("/check-attendance", authMiddleware, async (req, res) => {
   try {
-    const { qrData } = req.body;
+    const { eventId, userId } = req.body;
     const scannerId = req.user.id;
 
-    if (!qrData) {
-      return res.status(400).json({ error: "QR data is required." });
-    }
-
-    let parsedData;
-    try {
-      parsedData = JSON.parse(qrData);
-    } catch (parseError) {
-      return res.status(400).json({ error: "Invalid QR code format." });
-    }
-
-    const { userId, eventId } = parsedData;
-
-    if (!userId || !eventId) {
-      return res.status(400).json({ error: "Invalid QR code data." });
+    if (!eventId || !userId) {
+      return res.status(400).json({ error: "Event ID and User ID are required." });
     }
 
     if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(eventId)) {
-      return res.status(400).json({ error: "Invalid user ID or event ID in QR code." });
+      return res.status(400).json({ error: "Invalid user ID or event ID." });
     }
 
     const event = await Event.findById(eventId);
@@ -240,9 +227,7 @@ router.post("/check-attendance", authMiddleware, async (req, res) => {
     });
 
     await event.save();
-
-  res.status(200).json(event);
-
+    res.status(200).json(event);
 
   } catch (error) {
     console.error("Error checking attendance:", error);
