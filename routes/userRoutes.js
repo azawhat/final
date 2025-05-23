@@ -109,7 +109,7 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
       name: user.name,
     });
 
-    await event.save();
+    
 
     let qrCodeSent = false;
     let emailError = null;
@@ -150,7 +150,7 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
       qrCodeSent: qrCodeSent,
       isOpen: event.isOpen
     };
-
+    await event.save();
     // Include email error in response for debugging (optional)
     if (emailError && event.isOpen) {
       response.emailWarning = `QR code email could not be sent: ${emailError}`;
