@@ -38,6 +38,10 @@ const sendVerificationCode = async (user, verificationCode) => {
 };
 
 const sendQRCodeEmail = async (user, event, qrCodeImage) => {
+  // Convert base64 to buffer for attachment
+  const base64Data = qrCodeImage.replace(/^data:image\/png;base64,/, '');
+  const qrBuffer = Buffer.from(base64Data, 'base64');
+
   const mailOptions = {
     from: process.env.EMAIL_USERNAME,
     to: user.email,
@@ -59,26 +63,26 @@ const sendQRCodeEmail = async (user, event, qrCodeImage) => {
 
         <div style="text-align: center; margin: 30px 0;">
           <h3>Your Attendance QR Code</h3>
-          <p>Please present this QR code at the event for attendance verification:</p>
-          <div style="padding: 20px; background-color: white; border: 2px solid #ddd; border-radius: 8px; display: inline-block;">
-            <img src="${qrCodeImage}" alt="QR Code for Event Attendance" style="width: 200px; height: 200px;" />
+          <p>Your QR code for event attendance is attached to this email.</p>
+          <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0; color: #856404;">
+              <strong>QR Code Attached:</strong> Please download and save the attached QR code image. 
+              Present this QR code at the event for attendance verification.
+            </p>
           </div>
-          <p style="font-size: 12px; color: #666; margin-top: 10px;">
-            Save this email or take a screenshot of the QR code for easy access at the event.
-          </p>
         </div>
-
-        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 15px; margin: 20px 0;">
-          <p style="margin: 0; color: #856404;">
-            <strong>Important:</strong> This QR code is unique to you and this event. 
-            Please keep it safe and present it when requested at the event venue.
-          </p>
-        </div>
-
         <p>We look forward to seeing you at the event!</p>
         <p>Best regards,<br>SeeYa Team</p>
       </div>
-    `
+    `,
+    attachments: [
+      {
+        filename: `QR-Code-${event.name.replace(/[^a-zA-Z0-9]/g, '-')}.png`,
+        content: qrBuffer,
+        encoding: 'base64',
+        cid: 'qrcode' // Content ID for referencing in HTML if needed
+      }
+    ]
   };
 
   try {
