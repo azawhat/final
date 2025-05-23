@@ -218,7 +218,6 @@ router.post("/check-attendance", authMiddleware, async (req, res) => {
       return res.status(400).json({ error: "User attendance already recorded." });
     }
 
-    event.participants.splice(participantIndex, 1);
     event.attendance.push({
       _id: participant._id,
       username: participant.username,
