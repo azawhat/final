@@ -210,7 +210,7 @@ router.post("/check-attendance", authMiddleware, async (req, res) => {
 
     await event.save();
 
-  res.status(200).json(event.attendance);
+  res.status(200).json(event);
 
 
   } catch (error) {
