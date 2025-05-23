@@ -16,6 +16,45 @@ router.get("/", async (req, res) => {
   }
 });
 
+router.get("/:eventId/attendances", async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    
+    // Validate eventId
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({ error: "Invalid eventId." });
+    }
+
+    // Check if event exists and get attendances
+    const event = await Event.findById(eventId).select('attendance name startDate endDate location');
+    if (!event) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    // Get attendances from the event's attendance field
+    const attendances = event.attendance || [];
+
+    res.status(200).json({
+      eventId: eventId,
+      eventName: event.name,
+      eventLocation: event.location,
+      eventStartDate: event.startDate,
+      totalAttendances: attendances.length,
+      attendances: attendances.map(attendance => ({
+        userId: attendance._id,
+        name: attendance.name,
+        surname: attendance.surname,
+        username: attendance.username,
+        checkedInAt: attendance.checkedInAt
+      }))
+    });
+
+  } catch (error) {
+    console.error("Error fetching event attendances:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Complete fixed event creation route handler
 router.post("/create", authMiddleware, async (req, res) => {
   try {
