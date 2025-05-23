@@ -6,7 +6,8 @@ const ClubSchema = new mongoose.Schema({
   clubPicture: { type: String }, 
   isOpen: {type: Boolean, default: true},
   category: { type: String },
-  creator: { 
+  clubTag : { type: [String] },
+  creator: {
     _id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     name: { type: String, required: true },
     surname: { type: String, required: true },
@@ -19,7 +20,6 @@ const ClubSchema = new mongoose.Schema({
     username: { type: String, required: true },
   }],
   createdAt: { type: Date, default: Date.now },
-  deletedAt: { type: Date, default: null }
 });
 
 module.exports = mongoose.model("Club", ClubSchema);
