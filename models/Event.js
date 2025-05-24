@@ -10,6 +10,8 @@ const EventSchema = new mongoose.Schema({
   eventPosts : { type: String },
   eventProgramme: { type: String },
   isOpen: { type: Boolean, default: true },
+  chatLink: { type: String },
+  locationLink: { type: String },
   eventRating: { type: Number },
   creator: {
     _id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },

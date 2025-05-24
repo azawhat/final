@@ -27,12 +27,10 @@ router.put("/update", authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const updates = req.body;
 
-    // Remove fields that shouldn't be updated directly
     delete updates._id;
     delete updates.__v;
     delete updates.createdAt;
 
-    // Check if username is being updated and if it's already taken
     if (updates.username) {
       const existingUser = await User.findOne({ 
         username: updates.username, 
@@ -43,7 +41,6 @@ router.put("/update", authMiddleware, async (req, res) => {
       }
     }
 
-    // Check if email is being updated and if it's already taken
     if (updates.email) {
       const existingUser = await User.findOne({ 
         email: updates.email, 
@@ -52,7 +49,7 @@ router.put("/update", authMiddleware, async (req, res) => {
       if (existingUser) {
         return res.status(400).json({ error: "Email is already taken." });
       }
-      // If email is being changed, reset email verification
+
       updates.isEmailVerified = false;
       updates.verificationCode = undefined;
       updates.verificationCodeExpires = undefined;
