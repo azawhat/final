@@ -53,7 +53,7 @@ const sendQRCodeEmail = async (user, event, qrCodeImage) => {
         <p>You have successfully joined the event: <strong>${event.name}</strong></p>
         
         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="margin-top: 0; color: #333;">Event Details:</h3>
+          <h3 style="margin-top: 0; color: #333;">Event Details</h3>
           <p><strong>Event:</strong> ${event.name}</p>
           <p><strong>Description:</strong> ${event.description || 'No description provided'}</p>
           <p><strong>Location:</strong> ${event.location}</p>
