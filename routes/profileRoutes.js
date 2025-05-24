@@ -22,8 +22,6 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-const bcrypt = require('bcryptjs');
-
 router.put("/update", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
