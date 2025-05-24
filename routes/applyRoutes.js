@@ -20,25 +20,21 @@ router.post('/club/:clubId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Invalid club ID' });
     }
 
-    // Find the club
     const club = await Club.findById(clubId);
     if (!club) {
       return res.status(404).json({ error: 'Club not found' });
     }
 
-    // Check if club is closed for applications (isOpen: false)
     if (club.isOpen) {
       return res.status(400).json({ 
         error: 'This club is open and does not require applications. You can join directly.' 
       });
     }
 
-    // Check if user is the creator
     if (club.creator._id.toString() === userId.toString()) {
       return res.status(400).json({ error: 'You cannot apply to your own club' });
     }
 
-    // Check if user is already a participant
     const isParticipant = club.participants.some(
       participant => participant._id.toString() === userId.toString()
     );
@@ -46,7 +42,6 @@ router.post('/club/:clubId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'You are already a member of this club' });
     }
 
-    // Check if user has already applied
     const existingApplication = await Application.findOne({
       applicant: userId,
       targetType: 'club',
@@ -57,7 +52,6 @@ router.post('/club/:clubId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'You have already applied to this club' });
     }
 
-    // Create application
     const application = new Application({
       applicant: userId,
       targetType: 'club',
@@ -77,7 +71,6 @@ router.post('/club/:clubId', authMiddleware, async (req, res) => {
   }
 });
 
-// Apply to an event
 router.post('/event/:eventId', authMiddleware, async (req, res) => {
   try {
     const { eventId } = req.params;
@@ -87,25 +80,21 @@ router.post('/event/:eventId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Invalid event ID' });
     }
 
-    // Find the event
     const event = await Event.findById(eventId);
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    // Check if event is closed for applications (isOpen: false)
     if (event.isOpen) {
       return res.status(400).json({ 
         error: 'This event is open and does not require applications. You can join directly.' 
       });
     }
 
-    // Check if user is the creator
     if (event.creator._id.toString() === userId.toString()) {
       return res.status(400).json({ error: 'You cannot apply to your own event' });
     }
 
-    // Check if user is already a participant
     const isParticipant = event.participants.some(
       participant => participant._id.toString() === userId.toString()
     );
@@ -113,7 +102,6 @@ router.post('/event/:eventId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'You are already a participant in this event' });
     }
 
-    // Check if user has already applied
     const existingApplication = await Application.findOne({
       applicant: userId,
       targetType: 'event',
@@ -124,7 +112,6 @@ router.post('/event/:eventId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'You have already applied to this event' });
     }
 
-    // Create application
     const application = new Application({
       applicant: userId,
       targetType: 'event',
@@ -144,7 +131,6 @@ router.post('/event/:eventId', authMiddleware, async (req, res) => {
   }
 });
 
-// Get all applications for a specific club (for club creators)
 router.get('/club/:clubId/applications', authMiddleware, async (req, res) => {
   try {
     const { clubId } = req.params;
@@ -338,10 +324,13 @@ router.post('/accept/:applicationId', authMiddleware, async (req, res) => {
     // Delete the application after acceptance
     await Application.findByIdAndDelete(applicationId);
 
+    const updatedApplications = await Application.find({
+    targetType: application.targetType,
+    targetId: application.targetId
+    }).populate('applicant', 'name surname username email profilePicture').sort({ appliedAt: -1 });
+
     res.status(200).json({ 
-      message: 'Application accepted successfully',
-      participant: participantData,
-      emailSent: application.targetType === 'event' // Only for events
+    applications: updatedApplications
     });
 
   } catch (error) {
@@ -384,7 +373,14 @@ router.post('/reject/:applicationId', authMiddleware, async (req, res) => {
     // Delete the application (rejection means removal)
     await Application.findByIdAndDelete(applicationId);
 
-    res.status(200).json({ message: 'Application rejected successfully' });
+    const updatedApplications = await Application.find({
+    targetType: application.targetType,
+    targetId: application.targetId
+    }).populate('applicant', 'name surname username email profilePicture').sort({ appliedAt: -1 });
+
+    res.status(200).json({ 
+    applications: updatedApplications
+    });
 
   } catch (error) {
     console.error('Error rejecting application:', error);

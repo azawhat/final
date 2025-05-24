@@ -95,4 +95,35 @@ const sendQRCodeEmail = async (user, event, qrCodeImage) => {
   }
 };
 
-module.exports = { sendVerificationCode, sendQRCodeEmail };
+const sendNewPasswordEmail = async (user, newPassword) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USERNAME,
+    to: user.email,
+    subject: 'Your New SeeYa Password',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e1e1; border-radius: 5px;">
+        <h2>Reset Password</h2>
+        <p>Hello ${user.name},</p>
+        <p>Your password has been reset. Here is your new password:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 4px; font-size: 24px; letter-spacing: 2px; font-weight: bold;">${newPassword}</div>
+        </div>
+        <p>Please log in and change your password as soon as possible.</p>
+        <p>Best regards,<br>SeeYa</p>
+      </div>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`New password email sent to ${user.email}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending new password email:', error);
+    return false;
+  }
+};
+
+
+
+module.exports = { sendVerificationCode, sendQRCodeEmail, sendNewPasswordEmail };

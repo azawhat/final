@@ -3,6 +3,7 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const authMiddleware = require("../middleware/authMiddleware");
 const router = express.Router();
+const { sendNewPasswordEmail } = require("../config/emailConfig");
 
 // Get user profile
 router.get("/", authMiddleware, async (req, res) => {
@@ -40,7 +41,6 @@ router.put("/update", authMiddleware, async (req, res) => {
       }
     }
 
-    // Update user with all provided fields (including picture)
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { $set: updates },
@@ -59,6 +59,33 @@ router.put("/update", authMiddleware, async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
     
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+router.post("/forgot-password/:email", async (req, res) => {
+  const { email } = req.params;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User with this email does not exist." });
+    }
+
+    const newPassword = Math.random().toString(36).slice(-8);
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    const emailSent = await sendNewPasswordEmail(user, newPassword);
+    if (!emailSent) {
+      return res.status(500).json({ error: "Failed to send new password email." });
+    }
+
+    res.status(200).json();
+  } catch (error) {
+    console.error("Error in forgot password route:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 });
