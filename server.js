@@ -3,7 +3,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
-const path = require('path');
 require("dotenv").config();
 
 const app = express();
@@ -25,9 +24,6 @@ const authRoutes = require("./routes/authRoutes")
 const searchRoutes = require('./routes/searchRoutes');
 const profileRoutes = require("./routes/profileRoutes");
 const shareRoutes = require("./routes/shareRoutes");
-const applicationRoutes = require("./routes/applyRoutes");
-const adminRoutes = require('./routes/adminRoutes');
-
 // Use Routes
 app.use("/users", userRoutes);
 app.use("/events", eventRoutes);
@@ -36,9 +32,6 @@ app.use("/auth", authRoutes);
 app.use('/search', searchRoutes);
 app.use("/profile", profileRoutes);
 app.use("/share", shareRoutes);
-app.use("/applications", applicationRoutes);
-app.use('/admin', adminRoutes);
-app.use('/admin/public', express.static(path.join(__dirname, 'admin/public')));
 
 // Start Server
 app.listen(PORT, () => {
