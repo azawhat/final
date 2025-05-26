@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; }
+        .header { background: #2c3e50; color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
+        .nav { display: flex; gap: 1rem; }
+        .nav button { background: #34495e; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+        .nav button.active, .nav button:hover { background: #1abc9c; }
+        .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .stat-number { font-size: 2rem; font-weight: bold; color: #2c3e50; }
+        .stat-label { color: #7f8c8d; margin-top: 0.5rem; }
+        .section { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+        .section-header { padding: 1rem; border-bottom: 1px solid #ecf0f1; font-weight: bold; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th, .table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ecf0f1; }
+        .table th { background: #f8f9fa; font-weight: bold; }
+        .btn { padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-info { background: #3498db; color: white; }
+        .btn:hover { opacity: 0.8; }
+        .search-box { padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 1rem; width: 300px; }
+        .hidden { display: none; }
+        .loading { text-align: center; padding: 2rem; color: #7f8c8d; }
+        .error { background: #e74c3c; color: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .success { background: #27ae60; color: white; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+        .modal-content { background: white; margin: 5% auto; padding: 2rem; border-radius: 8px; max-width: 500px; }
+        .close { float: right; font-size: 1.5rem; cursor: pointer; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        .form-group input { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Admin Panel</h1>
+        <div class="nav">
+            <button onclick="showSection('dashboard')" class="active" id="dashboard-btn">Dashboard</button>
+            <button onclick="showSection('users')" id="users-btn">Users</button>
+            <button onclick="showSection('events')" id="events-btn">Events</button>
+            <button onclick="showSection('clubs')" id="clubs-btn">Clubs</button>
+            <button onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="message-container"></div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard-section">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-users">-</div>
+                    <div class="stat-label">Total Users</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="total-events">-</div>
+                    <div class="stat-label">Total Events</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="total-clubs">-</div>
+                    <div class="stat-label">Total Clubs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="recent-registrations">-</div>
+                    <div class="stat-label">Recent Registrations</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users Section -->
+        <div id="users-section" class="hidden">
+            <div class="section">
+                <div class="section-header">
+                    Users Management
+                    <input type="text" placeholder="Search users..." class="search-box" id="users-search" style="float: right;">
+                </div>
+                <div id="users-content">
+                    <div class="loading">Loading users...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Events Section -->
+        <div id="events-section" class="hidden">
+            <div class="section">
+                <div class="section-header">
+                    Events Management
+                    <input type="text" placeholder="Search events..." class="search-box" id="events-search" style="float: right;">
+                </div>
+                <div id="events-content">
+                    <div class="loading">Loading events...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clubs Section -->
+        <div id="clubs-section" class="hidden">
+            <div class="section">
+                <div class="section-header">
+                    Clubs Management
+                    <input type="text" placeholder="Search clubs..." class="search-box" id="clubs-search" style="float: right;">
+                </div>
+                <div id="clubs-content">
+                    <div class="loading">Loading clubs...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Details Modal -->
+    <div id="user-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('user-modal')">&times;</span>
+            <h2>User Details</h2>
+            <div id="user-details"></div>
+        </div>
+    </div>
+
+    <!-- Event Details Modal -->
+    <div id="event-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('event-modal')">&times;</span>
+            <h2>Event Details</h2>
+            <div id="event-details"></div>
+        </div>
+    </div>
+
+    <!-- Club Details Modal -->
+    <div id="club-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('club-modal')">&times;</span>
+            <h2>Club Details</h2>
+            <div id="club-details"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = {
+            users: [],
+            events: [],
+            clubs: []
+        };
+
+        // API Base URL - adjust this to your server URL
+        const API_BASE = 'http://localhost:8080'; // Change this to your actual server URL
+
+        // Initialize admin panel
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+        });
+
+        function showMessage(message, type = 'success') {
+            const container = document.getElementById('message-container');
+            container.innerHTML = `<div class="${type}">${message}</div>`;
+            setTimeout(() => container.innerHTML = '', 3000);
+        }
+
+        function showSection(section) {
+            // Hide all sections
+            document.querySelectorAll('[id$="-section"]').forEach(s => s.classList.add('hidden'));
+            // Remove active class from all nav buttons
+            document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+            
+            // Show selected section
+            document.getElementById(section + '-section').classList.remove('hidden');
+            document.getElementById(section + '-btn').classList.add('active');
+
+            // Load data for the section
+            switch(section) {
+                case 'dashboard':
+                    loadDashboard();
+                    break;
+                case 'users':
+                    loadUsers();
+                    break;
+                case 'events':
+                    loadEvents();
+                    break;
+                case 'clubs':
+                    loadClubs();
+                    break;
+            }
+        }
+
+        async function loadDashboard() {
+            try {
+                const [usersRes, eventsRes, clubsRes] = await Promise.all([
+                    fetch(`${API_BASE}/users`),
+                    fetch(`${API_BASE}/events`),
+                    fetch(`${API_BASE}/clubs`)
+                ]);
+
+                const users = await usersRes.json();
+                const events = await eventsRes.json();
+                const clubs = await clubsRes.json();
+
+                document.getElementById('total-users').textContent = users.length;
+                document.getElementById('total-events').textContent = events.length;
+                document.getElementById('total-clubs').textContent = clubs.length;
+
+                // Recent registrations (last 7 days)
+                const lastWeek = new Date();
+                lastWeek.setDate(lastWeek.getDate() - 7);
+                const recentUsers = users.filter(user => new Date(user.createdAt) >= lastWeek);
+                document.getElementById('recent-registrations').textContent = recentUsers.length;
+
+            } catch (error) {
+                showMessage('Error loading dashboard data', 'error');
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_BASE}/users`);
+                const users = await response.json();
+                currentData.users = users;
+                displayUsers(users);
+            } catch (error) {
+                document.getElementById('users-content').innerHTML = '<div class="error">Error loading users</div>';
+            }
+        }
+
+        function displayUsers(users) {
+            const html = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Joined</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${users.map(user => `
+                            <tr>
+                                <td>${user.name} ${user.surname}</td>
+                                <td>${user.username}</td>
+                                <td>${user.email}</td>
+                                <td>${new Date(user.createdAt).toLocaleDateString()}</td>
+                                <td>${user.isEmailVerified ? '✅ Verified' : '❌ Unverified'}</td>
+                                <td>
+                                    <button class="btn btn-info" onclick="viewUser('${user._id}')">View</button>
+                                    <button class="btn btn-danger" onclick="deleteUser('${user._id}')">Delete</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('users-content').innerHTML = html;
+        }
+
+        async function loadEvents() {
+            try {
+                const response = await fetch(`${API_BASE}/events`);
+                const events = await response.json();
+                currentData.events = events;
+                displayEvents(events);
+            } catch (error) {
+                document.getElementById('events-content').innerHTML = '<div class="error">Error loading events</div>';
+            }
+        }
+
+        function displayEvents(events) {
+            const html = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Creator</th>
+                            <th>Date</th>
+                            <th>Location</th>
+                            <th>Participants</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${events.map(event => `
+                            <tr>
+                                <td>${event.name}</td>
+                                <td>${event.creator.name} ${event.creator.surname}</td>
+                                <td>${event.startDate ? new Date(event.startDate).toLocaleDateString() : 'N/A'}</td>
+                                <td>${event.location || 'N/A'}</td>
+                                <td>${event.participants ? event.participants.length : 0}</td>
+                                <td>
+                                    <button class="btn btn-info" onclick="viewEvent('${event._id}')">View</button>
+                                    <button class="btn btn-danger" onclick="deleteEvent('${event._id}', '${event.creator._id}')">Delete</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('events-content').innerHTML = html;
+        }
+
+        async function loadClubs() {
+            try {
+                const response = await fetch(`${API_BASE}/clubs`);
+                const clubs = await response.json();
+                currentData.clubs = clubs;
+                displayClubs(clubs);
+            } catch (error) {
+                document.getElementById('clubs-content').innerHTML = '<div class="error">Error loading clubs</div>';
+            }
+        }
+
+        function displayClubs(clubs) {
+            const html = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Creator</th>
+                            <th>Category</th>
+                            <th>Members</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${clubs.map(club => `
+                            <tr>
+                                <td>${club.name}</td>
+                                <td>${club.creator.name} ${club.creator.surname}</td>
+                                <td>${club.category || 'N/A'}</td>
+                                <td>${club.participants ? club.participants.length : 0}</td>
+                                <td>${club.isOpen ? '🟢 Open' : '🔴 Closed'}</td>
+                                <td>
+                                    <button class="btn btn-info" onclick="viewClub('${club._id}')">View</button>
+                                    <button class="btn btn-danger" onclick="deleteClub('${club._id}', '${club.creator._id}')">Delete</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('clubs-content').innerHTML = html;
+        }
+
+        async function viewUser(userId) {
+            try {
+                const response = await fetch(`${API_BASE}/users/${userId}`);
+                const user = await response.json();
+                
+                const html = `
+                    <div class="form-group">
+                        <label>Full Name:</label>
+                        <input type="text" value="${user.name} ${user.surname}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Username:</label>
+                        <input type="text" value="${user.username}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Email:</label>
+                        <input type="text" value="${user.email}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Email Verified:</label>
+                        <input type="text" value="${user.isEmailVerified ? 'Yes' : 'No'}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Admin:</label>
+                        <input type="text" value="${user.isAdmin ? 'Yes' : 'No'}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Joined:</label>
+                        <input type="text" value="${new Date(user.createdAt).toLocaleString()}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Rating:</label>
+                        <input type="text" value="${user.rating || 'N/A'}" readonly>
+                    </div>
+                `;
+                
+                document.getElementById('user-details').innerHTML = html;
+                document.getElementById('user-modal').style.display = 'block';
+            } catch (error) {
+                showMessage('Error loading user details', 'error');
+            }
+        }
+
+        async function viewEvent(eventId) {
+            try {
+                const response = await fetch(`${API_BASE}/events/${eventId}`);
+                const event = await response.json();
+                
+                const html = `
+                    <div class="form-group">
+                        <label>Name:</label>
+                        <input type="text" value="${event.name}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <input type="text" value="${event.description || 'N/A'}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Creator:</label>
+                        <input type="text" value="${event.creator.name} ${event.creator.surname}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Category:</label>
+                        <input type="text" value="${event.category || 'N/A'}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Location:</label>
+                        <input type="text" value="${event.location || 'N/A'}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Start Date:</label>
+                        <input type="text" value="${event.startDate ? new Date(event.startDate).toLocaleString() : 'N/A'}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Participants:</label>
+                        <input type="text" value="${event.participants ? event.participants.length : 0}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Status:</label>
+                        <input type="text" value="${event.isOpen ? 'Open' : 'Closed'}" readonly>
+                    </div>
+                `;
+                
+                document.getElementById('event-details').innerHTML = html;
+                document.getElementById('event-modal').style.display = 'block';
+            } catch (error) {
+                showMessage('Error loading event details', 'error');
+            }
+        }
+
+        async function viewClub(clubId) {
+            try {
+                const response = await fetch(`${API_BASE}/clubs/${clubId}`);
+                const club = await response.json();
+                
+                const html = `
+                    <div class="form-group">
+                        <label>Name:</label>
+                        <input type="text" value="${club.name}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <input type="text" value="${club.description || 'N/A'}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Creator:</label>
+                        <input type="text" value="${club.creator.name} ${club.creator.surname}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Category:</label>
+                        <input type="text" value="${club.category || 'N/A'}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Club Tag:</label>
+                        <input type="text" value="${club.clubTag || 'N/A'}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Members:</label>
+                        <input type="text" value="${club.participants ? club.participants.length : 0}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Status:</label>
+                        <input type="text" value="${club.isOpen ? 'Open' : 'Closed'}" readonly>
+                    </div>
+                `;
+                
+                document.getElementById('club-details').innerHTML = html;
+                document.getElementById('club-modal').style.display = 'block';
+            } catch (error) {
+                showMessage('Error loading club details', 'error');
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('Are you sure you want to delete this user?')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/users/delete-user/${userId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showMessage('User deleted successfully');
+                    loadUsers();
+                } else {
+                    showMessage('Error deleting user', 'error');
+                }
+            } catch (error) {
+                showMessage('Error deleting user', 'error');
+            }
+        }
+
+        async function deleteEvent(eventId, creatorId) {
+            if (!confirm('Are you sure you want to delete this event?')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/events/delete-event/${eventId}/${creatorId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showMessage('Event deleted successfully');
+                    loadEvents();
+                } else {
+                    showMessage('Error deleting event', 'error');
+                }
+            } catch (error) {
+                showMessage('Error deleting event', 'error');
+            }
+        }
+
+        async function deleteClub(clubId, creatorId) {
+            if (!confirm('Are you sure you want to delete this club?')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/clubs/delete-club/${clubId}/${creatorId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showMessage('Club deleted successfully');
+                    loadClubs();
+                } else {
+                    showMessage('Error deleting club', 'error');
+                }
+            } catch (error) {
+                showMessage('Error deleting club', 'error');
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Search functionality
+        document.getElementById('users-search').addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase();
+            const filtered = currentData.users.filter(user => 
+                user.name.toLowerCase().includes(query) ||
+                user.surname.toLowerCase().includes(query) ||
+                user.username.toLowerCase().includes(query) ||
+                user.email.toLowerCase().includes(query)
+            );
+            displayUsers(filtered);
+        });
+
+        document.getElementById('events-search').addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase();
+            const filtered = currentData.events.filter(event => 
+                event.name.toLowerCase().includes(query) ||
+                (event.location && event.location.toLowerCase().includes(query)) ||
+                (event.creator.name + ' ' + event.creator.surname).toLowerCase().includes(query)
+            );
+            displayEvents(filtered);
+        });
+
+        document.getElementById('clubs-search').addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase();
+            const filtered = currentData.clubs.filter(club => 
+                club.name.toLowerCase().includes(query) ||
+                (club.category && club.category.toLowerCase().includes(query)) ||
+                (club.creator.name + ' ' + club.creator.surname).toLowerCase().includes(query)
+            );
+            displayClubs(filtered);
+        });
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                // Clear any stored authentication data
+                localStorage.removeItem('admin_token');
+                // Redirect to login page or reload
+                window.location.reload();
+            }
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

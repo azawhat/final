@@ -1,16 +1,17 @@
-//server,js
-
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
+const path = require("path");
 require("dotenv").config();
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
 app.use(bodyParser.json());
+
+app.use(express.static(path.join(__dirname, "public")));
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected Successfully"))
@@ -24,6 +25,7 @@ const authRoutes = require("./routes/authRoutes")
 const searchRoutes = require('./routes/searchRoutes');
 const profileRoutes = require("./routes/profileRoutes");
 const shareRoutes = require("./routes/shareRoutes");
+
 // Use Routes
 app.use("/users", userRoutes);
 app.use("/events", eventRoutes);
