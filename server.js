@@ -10,7 +10,6 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 app.use(bodyParser.json());
-
 app.use(express.static(path.join(__dirname, "public")));
 
 mongoose.connect(process.env.MONGO_URI)
@@ -25,6 +24,7 @@ const authRoutes = require("./routes/authRoutes")
 const searchRoutes = require('./routes/searchRoutes');
 const profileRoutes = require("./routes/profileRoutes");
 const shareRoutes = require("./routes/shareRoutes");
+const applyRoutes = require("./routes/applyRoutes");
 
 // Use Routes
 app.use("/users", userRoutes);
@@ -34,7 +34,7 @@ app.use("/auth", authRoutes);
 app.use('/search', searchRoutes);
 app.use("/profile", profileRoutes);
 app.use("/share", shareRoutes);
-
+app.use("/applications", applyRoutes)
 // Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

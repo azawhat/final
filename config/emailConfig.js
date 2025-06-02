@@ -58,7 +58,6 @@ const sendQRCodeEmail = async (user, event, qrCodeImage) => {
           <p><strong>Description:</strong> ${event.description || 'No description provided'}</p>
           <p><strong>Location:</strong> ${event.location}</p>
           <p><strong>Start Date:</strong> ${new Date(event.startDate).toLocaleString()}</p>
-          ${event.endDate ? `<p><strong>End Date:</strong> ${new Date(event.endDate).toLocaleString()}</p>` : ''}
         </div>
 
         <div style="text-align: center; margin: 30px 0;">

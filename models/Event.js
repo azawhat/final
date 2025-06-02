@@ -19,23 +19,13 @@ const EventSchema = new mongoose.Schema({
     surname: { type: String, required: true },
     username: { type: String, required: true },
   },
-  participants: [{
-    _id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    name: { type: String, required: true },
-    surname: { type: String, required: true },
-    username: { type: String, required: true },
-  }],
+  participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   attendance: [{
-    _id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    name: { type: String, required: true },
-    surname: { type: String, required: true },
-    username: { type: String, required: true },
-    checkedInAt: { type: Date, default: Date.now }
+    _id: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
   }],
   maxParticipants: { type: Number },
   location: { type: String },
-  startDate: { type: String },
-  endDate: { type: String }
+  startDate: { type: String }
 });
 
 EventSchema.post("save", async function () {

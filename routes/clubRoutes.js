@@ -24,21 +24,6 @@ router.post("/create", authMiddleware, async (req, res) => {
     const user = await User.findById(creatorId);
     if (!user) return res.status(404).json({ message: "Creator not found" });
 
-    let participants = [];
-    if (Array.isArray(participantId)) {
-      participants = await User.find({ _id: { $in: participantId } });
-    } else if (participantId) {
-      const participant = await User.findById(participantId);
-      if (participant) participants.push(participant);
-    }
-
-    const participantData = participants.map(p => ({
-      _id: p._id,
-      name: p.name,
-      surname: p.surname,
-      username: p.username,
-    }));
-
     const club = new Club({
       name,
       description,
@@ -46,7 +31,7 @@ router.post("/create", authMiddleware, async (req, res) => {
       isOpen: isOpen !== undefined ? isOpen : true,
       category,
       clubTag,
-      participants: participantData,
+      participants: [],
       creator: {
         _id: user._id,
         name: user.name,

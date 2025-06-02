@@ -26,7 +26,7 @@ router.get("/:eventId/attendances", async (req, res) => {
     }
 
     // Check if event exists and get attendances
-    const event = await Event.findById(eventId).select('attendance name startDate endDate location');
+    const event = await Event.findById(eventId).select('attendance name startDate location');
     if (!event) {
       return res.status(404).json({ message: "Event not found" });
     }
@@ -55,7 +55,6 @@ router.get("/:eventId/attendances", async (req, res) => {
   }
 });
 
-// Complete fixed event creation route handler
 router.post("/create", authMiddleware, async (req, res) => {
   try {
     const creatorId = req.user._id;
@@ -70,10 +69,8 @@ router.post("/create", authMiddleware, async (req, res) => {
       isOpen,
       eventRating,
       location,
-      participantId,
       maxParticipants,
-      startDate,
-      endDate
+      startDate
     } = req.body;
 
     // Validate required fields
@@ -83,35 +80,12 @@ router.post("/create", authMiddleware, async (req, res) => {
 
     // Parse dates
     const parsedStartDate = new Date(startDate);
-    const parsedEndDate = endDate ? new Date(endDate) : undefined;
 
     if (isNaN(parsedStartDate.getTime())) {
       return res.status(400).json({ message: "Invalid startDate format", receivedValue: startDate });
     }
-
-    if (endDate && isNaN(parsedEndDate.getTime())) {
-      return res.status(400).json({ message: "Invalid endDate format", receivedValue: endDate });
-    }
-
-    // Find creator
     const user = await User.findById(creatorId);
     if (!user) return res.status(404).json({ message: "Creator not found" });
-
-    // Handle participants
-    let participants = [];
-    if (Array.isArray(participantId)) {
-      participants = await User.find({ _id: { $in: participantId } });
-    } else if (participantId) {
-      const participant = await User.findById(participantId);
-      if (participant) participants.push(participant);
-    }
-
-    const participantData = participants.map(p => ({
-      _id: p._id,
-      name: p.name,
-      surname: p.surname,
-      username: p.username,
-    }));
 
     // Create new event
     const event = new Event({
@@ -127,8 +101,7 @@ router.post("/create", authMiddleware, async (req, res) => {
       location,
       maxParticipants,
       startDate: parsedStartDate,
-      endDate: parsedEndDate,
-      participants: participantData,
+      participants: [],
       creator: {
         _id: user._id,
         name: user.name,
@@ -199,18 +172,6 @@ router.put("/update/:eventId", authMiddleware, async (req, res) => {
       }
       updates.startDate = parsedStartDate;
     }
-
-    if (updates.endDate) {
-      const parsedEndDate = new Date(updates.endDate);
-      if (isNaN(parsedEndDate.getTime())) {
-        return res.status(400).json({ 
-          message: "Invalid endDate format", 
-          receivedValue: updates.endDate 
-        });
-      }
-      updates.endDate = parsedEndDate;
-    }
-
     // Set default value for isOpen if provided but undefined
     if (updates.hasOwnProperty('isOpen') && updates.isOpen === undefined) {
       updates.isOpen = true;
