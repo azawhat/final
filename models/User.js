@@ -18,6 +18,13 @@ const UserSchema = new mongoose.Schema({
   visitedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
   joinedClubs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Club" }], 
 
+  // FCM Token for push notifications
+  fcmToken: { type: String },
+  notificationSettings: {
+    eventReminders: { type: Boolean, default: true },
+    clubUpdates: { type: Boolean, default: true },
+    generalNotifications: { type: Boolean, default: true }
+  },
 
   // Email verification fields
   isEmailVerified: { type: Boolean, default: false },
@@ -25,12 +32,9 @@ const UserSchema = new mongoose.Schema({
   verificationCodeExpires: { type: Date }
 });
 
-// Method to generate verification code
 UserSchema.methods.generateVerificationCode = function() {
-  // Generate a 6-digit numeric code
   const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
   
-  // Set the code and expiration (30 minutes)
   this.verificationCode = verificationCode;
   this.verificationCodeExpires = Date.now() + 30 * 60 * 1000;
   

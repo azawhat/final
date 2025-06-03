@@ -195,7 +195,7 @@ router.get("/check-username/:username", async (req, res) => {
 // Login User
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, fcmToken } = req.body;
 
     const user = await User.findOne({ email })
       .populate("joinedClubs")
@@ -224,6 +224,12 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    // Update FCM token if provided
+    if (fcmToken) {
+      user.fcmToken = fcmToken;
+      await user.save();
+    }
+
     // Generate JWT
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
@@ -239,7 +245,8 @@ router.post("/login", async (req, res) => {
         isAdmin: user.isAdmin,
         visitedEvents: user.visitedEvents, 
         joinedClubs: user.joinedClubs,
-        createdAt: user.createdAt
+        createdAt: user.createdAt,
+        notificationSettings: user.notificationSettings
       },
     });
   } catch (error) {
@@ -247,5 +254,27 @@ router.post("/login", async (req, res) => {
   }
 });
 
+router.post("/logout", async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (userId) {
+      await User.findByIdAndUpdate(userId, { 
+        $unset: { fcmToken: 1 } 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Logged out successfully" 
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: "Internal server error" 
+    });
+  }
+});
 
 module.exports = router;

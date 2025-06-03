@@ -3,6 +3,7 @@ const Event = require("../models/Event");
 const mongoose = require("mongoose");
 const User = require("../models/User");
 const authMiddleware = require("../middleware/authMiddleware");
+const NotificationService = require("../services/notificationService");
 const router = express.Router();
 
 // Get all events
@@ -111,10 +112,106 @@ router.post("/create", authMiddleware, async (req, res) => {
     });
 
     await event.save();
+
+    // Schedule event reminder notifications
+    await NotificationService.scheduleEventReminders(event);
+
     res.status(201).json(event);
   } catch (error) {
     console.error("Error creating event:", error);
     res.status(400).json({ error: error.message });
+  }
+});
+
+// Join event
+router.post("/join/:eventId", authMiddleware, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const userId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({ error: "Invalid eventId" });
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    // Check if user is already a participant
+    if (event.participants.includes(userId)) {
+      return res.status(400).json({ message: "Already joined this event" });
+    }
+
+    // Check if event has reached max participants
+    if (event.maxParticipants && event.participants.length >= event.maxParticipants) {
+      return res.status(400).json({ message: "Event has reached maximum participants" });
+    }
+
+    // Add user to participants
+    event.participants.push(userId);
+    await event.save();
+
+    // Send notification to event creator
+    const notification = {
+      title: "New Event Participant",
+      body: `${req.user.name} ${req.user.surname} joined your event "${event.name}"`
+    };
+
+    const data = {
+      type: 'event_join',
+      eventId: eventId,
+      eventName: event.name,
+      participantId: userId
+    };
+
+    await NotificationService.addNotificationJob('send-notification', {
+      userId: event.creator._id.toString(),
+      notification,
+      data
+    });
+
+    res.json({ 
+      success: true, 
+      message: "Successfully joined the event" 
+    });
+  } catch (error) {
+    console.error("Error joining event:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Leave event
+router.post("/leave/:eventId", authMiddleware, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const userId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({ error: "Invalid eventId" });
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    // Check if user is a participant
+    if (!event.participants.includes(userId)) {
+      return res.status(400).json({ message: "Not a participant of this event" });
+    }
+
+    // Remove user from participants
+    event.participants = event.participants.filter(id => id.toString() !== userId);
+    await event.save();
+
+    res.json({ 
+      success: true, 
+      message: "Successfully left the event" 
+    });
+  } catch (error) {
+    console.error("Error leaving event:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -188,6 +285,18 @@ router.put("/update/:eventId", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Event not found" });
     }
 
+    // If startDate was updated, reschedule reminders
+    if (updates.startDate) {
+      await NotificationService.cancelEventReminders(eventId);
+      await NotificationService.scheduleEventReminders(updatedEvent);
+    }
+
+    // Send update notification to participants
+    await NotificationService.addNotificationJob('send-event-update', {
+      event: updatedEvent,
+      updateType: 'updated'
+    });
+
     res.json(updatedEvent);
   } catch (error) {
     console.error("Error updating event:", error);
@@ -230,15 +339,26 @@ router.delete("/delete-event/:eventId/:userId", async (req, res) => {
     if (event.creator._id.toString() !== userId) {
       return res.status(403).json({ error: "Unauthorized: Only the creator can delete this event." });
     }
+
+    // Cancel all scheduled reminders for this event
+    await NotificationService.cancelEventReminders(eventId);
+
+    // Send cancellation notification to participants
+    if (event.participants.length > 0) {
+      await NotificationService.addNotificationJob('send-event-update', {
+        event: event,
+        updateType: 'cancelled'
+      });
+    }
+
     await User.updateMany({}, { $pull: { registeredEvents: eventId } });
     await Event.findByIdAndDelete(eventId);
+    
     res.json({ message: "Event deleted successfully." });
   } catch (error) {
     console.error("Error deleting event:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 });
-
-
 
 module.exports = router;

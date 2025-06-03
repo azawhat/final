@@ -16,6 +16,9 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected Successfully"))
   .catch(err => console.error("MongoDB Connection Error:", err));
 
+// Initialize notification processors
+require('./workers/notificationProcessor');
+
 // Import Routes
 const userRoutes = require("./routes/userRoutes");
 const eventRoutes = require("./routes/eventRoutes");
@@ -25,6 +28,7 @@ const searchRoutes = require('./routes/searchRoutes');
 const profileRoutes = require("./routes/profileRoutes");
 const shareRoutes = require("./routes/shareRoutes");
 const applyRoutes = require("./routes/applyRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 // Use Routes
 app.use("/users", userRoutes);
@@ -34,8 +38,22 @@ app.use("/auth", authRoutes);
 app.use('/search', searchRoutes);
 app.use("/profile", profileRoutes);
 app.use("/share", shareRoutes);
-app.use("/applications", applyRoutes)
+app.use("/applications", applyRoutes);
+app.use("/notifications", notificationRoutes);
+
 // Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log('🔔 Notification system initialized');
+});
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  process.exit(0);
 });
