@@ -1,108 +1,57 @@
-const { notificationQueue, eventReminderQueue } = require('../config/queueConfig');
+const { eventReminderQueue } = require('../config/queueConfig');
 const NotificationService = require('../services/notificationService');
-const { sendNotificationToDevice, sendNotificationToMultipleDevices } = require('../config/firebaseConfig');
-
-// Process general notification jobs
-notificationQueue.process('send-notification', async (job) => {
-  const { userId, notification, data } = job.data;
-  
-  try {
-    const result = await NotificationService.sendImmediateNotification(userId, notification, data);
-    return result;
-  } catch (error) {
-    console.error('Error processing send-notification job:', error);
-    throw error;
-  }
-});
-
-notificationQueue.process('send-bulk-notification', async (job) => {
-  const { userIds, notification, data } = job.data;
-  
-  try {
-    const result = await NotificationService.sendNotificationToUsers(userIds, notification, data);
-    return result;
-  } catch (error) {
-    console.error('Error processing send-bulk-notification job:', error);
-    throw error;
-  }
-});
-
-notificationQueue.process('send-event-update', async (job) => {
-  const { event, updateType } = job.data;
-  
-  try {
-    const result = await NotificationService.sendEventUpdateNotification(event, updateType);
-    return result;
-  } catch (error) {
-    console.error('Error processing send-event-update job:', error);
-    throw error;
-  }
-});
 
 // Process event reminder jobs
 eventReminderQueue.process('send-event-reminder', async (job) => {
   try {
+    console.log(`Processing event reminder job ${job.id} for event ${job.data.eventName}`);
     const result = await NotificationService.processEventReminder(job.data);
-    return result;
-  } catch (error) {
-    console.error('Error processing send-event-reminder job:', error);
-    throw error;
-  }
-});
-
-// Process club notification jobs
-notificationQueue.process('send-club-notification', async (job) => {
-  const { clubId, notification, data } = job.data;
-  
-  try {
-    const Club = require('../models/Club');
-    const User = require('../models/User');
     
-    const club = await Club.findById(clubId).populate('members');
-    if (!club) {
-      throw new Error('Club not found');
+    if (result.success) {
+      console.log(`✅ Successfully sent reminder for event ${job.data.eventName}`);
+    } else {
+      console.log(`⚠️ Reminder processing completed with message: ${result.message || result.error}`);
     }
-
-    const users = await User.find({
-      _id: { $in: club.members },
-      fcmToken: { $exists: true, $ne: null },
-      'notificationSettings.clubUpdates': true
-    });
-
-    if (users.length === 0) {
-      return { success: true, message: 'No users to notify' };
-    }
-
-    const tokens = users.map(user => user.fcmToken);
-    const result = await sendNotificationToMultipleDevices(tokens, notification, data);
     
     return result;
   } catch (error) {
-    console.error('Error processing send-club-notification job:', error);
+    console.error(`❌ Error processing send-event-reminder job ${job.id}:`, error);
     throw error;
   }
 });
 
 // Log job completion and failures
-notificationQueue.on('completed', (job, result) => {
-  console.log(`✅ Notification job ${job.id} (${job.name}) completed successfully`);
-});
-
-notificationQueue.on('failed', (job, err) => {
-  console.error(`❌ Notification job ${job.id} (${job.name}) failed:`, err.message);
-});
-
 eventReminderQueue.on('completed', (job, result) => {
-  console.log(`✅ Event reminder job ${job.id} completed successfully`);
+  const timeUnit = job.data.reminderHours ? `${job.data.reminderHours}h` : `${job.data.reminderMinutes}m`;
+  console.log(`✅ Event reminder job ${job.id} (${timeUnit} for ${job.data.eventName}) completed successfully`);
 });
 
 eventReminderQueue.on('failed', (job, err) => {
-  console.error(`❌ Event reminder job ${job.id} failed:`, err.message);
+  const timeUnit = job.data.reminderHours ? `${job.data.reminderHours}h` : `${job.data.reminderMinutes}m`;
+  console.error(`❌ Event reminder job ${job.id} (${timeUnit} for ${job.data.eventName}) failed:`, err.message);
 });
 
-console.log('📧 Notification processors started and ready to process jobs');
+eventReminderQueue.on('stalled', (job) => {
+  console.warn(`⚠️ Event reminder job ${job.id} stalled and will be retried`);
+});
+
+// Clean up completed jobs periodically
+eventReminderQueue.on('global:completed', async () => {
+  try {
+    const completed = await eventReminderQueue.getCompleted();
+    if (completed.length > 100) {
+      const jobsToRemove = completed.slice(0, completed.length - 100);
+      await Promise.all(jobsToRemove.map(job => job.remove()));
+      console.log(`🧹 Cleaned up ${jobsToRemove.length} completed reminder jobs`);
+    }
+  } catch (error) {
+    console.error('Error cleaning up completed jobs:', error);
+  }
+});
+
+console.log('📧 Event reminder processor started and ready to process automatic reminders');
+console.log('⏰ Will send reminders at: 24 hours, 5 hours, and 15 minutes before events');
 
 module.exports = {
-  notificationQueue,
   eventReminderQueue
 };

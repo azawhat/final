@@ -112,7 +112,7 @@ router.post("/create", authMiddleware, async (req, res) => {
     });
 
     await event.save();
-
+    await onEventCreated(event);
     // Schedule event reminder notifications
     await NotificationService.scheduleEventReminders(event);
 
@@ -296,6 +296,7 @@ router.put("/update/:eventId", authMiddleware, async (req, res) => {
       event: updatedEvent,
       updateType: 'updated'
     });
+    await onEventUpdated(existingEvent, updatedEvent);
 
     res.json(updatedEvent);
   } catch (error) {
@@ -360,5 +361,33 @@ router.delete("/delete-event/:eventId/:userId", async (req, res) => {
     res.status(500).json({ error: "Internal server error." });
   }
 });
+
+const NotificationService = require("../services/notificationService");
+
+// Hook for when an event is created
+const onEventCreated = async (event) => {
+  try {
+    // Schedule automatic reminders for the new event
+    await NotificationService.scheduleEventReminders(event);
+    console.log(`Scheduled automatic reminders for new event: ${event.name}`);
+  } catch (error) {
+    console.error('Error setting up reminders for new event:', error);
+  }
+};
+
+// Hook for when an event is updated
+const onEventUpdated = async (oldEvent, newEvent) => {
+  try {
+    // Check if the start date changed
+    if (oldEvent.startDate !== newEvent.startDate) {
+      // Reschedule reminders with new time
+      await NotificationService.rescheduleEventReminders(newEvent);
+      console.log(`Rescheduled reminders for updated event: ${newEvent.name}`);
+    }
+  } catch (error) {
+    console.error('Error rescheduling reminders for updated event:', error);
+  }
+};
+
 
 module.exports = router;

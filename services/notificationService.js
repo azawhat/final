@@ -1,11 +1,11 @@
 const { sendNotificationToDevice, sendNotificationToMultipleDevices } = require('../config/firebaseConfig');
-const { notificationQueue, eventReminderQueue } = require('../config/queueConfig');
+const { eventReminderQueue } = require('../config/queueConfig');
 const User = require('../models/User');
 const Event = require('../models/Event');
 
 class NotificationService {
   /**
-   * Schedule event reminder notifications
+   * Schedule automatic event reminder notifications
    * @param {Object} event - Event object
    */
   static async scheduleEventReminders(event) {
@@ -13,12 +13,11 @@ class NotificationService {
       const eventStartTime = new Date(event.startDate);
       const now = new Date();
 
-      // Time intervals for reminders (in milliseconds)
+      // Time intervals for automatic reminders (in milliseconds)
       const reminderIntervals = [
         { hours: 24, delay: 24 * 60 * 60 * 1000 },
-        { hours: 12, delay: 12 * 60 * 60 * 1000 },
-        { hours: 6, delay: 6 * 60 * 60 * 1000 },
-        { hours: 1, delay: 1 * 60 * 60 * 1000 }
+        { hours: 5, delay: 5 * 60 * 60 * 1000 },
+        { minutes: 15, delay: 15 * 60 * 1000 }
       ];
 
       for (const interval of reminderIntervals) {
@@ -28,18 +27,26 @@ class NotificationService {
         if (reminderTime > now) {
           const delay = reminderTime.getTime() - now.getTime();
           
+          const jobId = interval.hours 
+            ? `${event._id}-${interval.hours}h`
+            : `${event._id}-${interval.minutes}m`;
+
           await eventReminderQueue.add('send-event-reminder', {
             eventId: event._id,
             eventName: event.name,
             eventLocation: event.location,
             eventStartDate: event.startDate,
-            reminderHours: interval.hours
+            reminderHours: interval.hours,
+            reminderMinutes: interval.minutes
           }, {
             delay: delay,
-            jobId: `${event._id}-${interval.hours}h`
+            jobId: jobId,
+            removeOnComplete: true,
+            removeOnFail: false
           });
 
-          console.log(`Scheduled ${interval.hours}h reminder for event ${event.name} at ${reminderTime}`);
+          const timeUnit = interval.hours ? `${interval.hours}h` : `${interval.minutes}m`;
+          console.log(`Scheduled ${timeUnit} reminder for event ${event.name} at ${reminderTime}`);
         }
       }
     } catch (error) {
@@ -53,15 +60,14 @@ class NotificationService {
    */
   static async cancelEventReminders(eventId) {
     try {
-      const reminderHours = [24, 12, 6, 1];
+      const jobIds = [`${eventId}-24h`, `${eventId}-5h`, `${eventId}-15m`];
       
-      for (const hours of reminderHours) {
-        const jobId = `${eventId}-${hours}h`;
+      for (const jobId of jobIds) {
         const job = await eventReminderQueue.getJob(jobId);
         
         if (job) {
           await job.remove();
-          console.log(`Cancelled ${hours}h reminder for event ${eventId}`);
+          console.log(`Cancelled reminder job ${jobId}`);
         }
       }
     } catch (error) {
@@ -70,49 +76,20 @@ class NotificationService {
   }
 
   /**
-   * Send immediate notification
-   * @param {string} userId - User ID
-   * @param {Object} notification - Notification object
-   * @param {Object} data - Additional data
+   * Reschedule event reminders when event time is updated
+   * @param {Object} event - Updated event object
    */
-  static async sendImmediateNotification(userId, notification, data = {}) {
+  static async rescheduleEventReminders(event) {
     try {
-      const user = await User.findById(userId);
+      // Cancel existing reminders
+      await this.cancelEventReminders(event._id);
       
-      if (!user || !user.fcmToken) {
-        return { success: false, error: 'User not found or no FCM token' };
-      }
-
-      return await sendNotificationToDevice(user.fcmToken, notification, data);
+      // Schedule new reminders with updated time
+      await this.scheduleEventReminders(event);
+      
+      console.log(`Rescheduled reminders for event ${event.name}`);
     } catch (error) {
-      console.error('Error sending immediate notification:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  /**
-   * Send notification to multiple users
-   * @param {Array} userIds - Array of user IDs
-   * @param {Object} notification - Notification object
-   * @param {Object} data - Additional data
-   */
-  static async sendNotificationToUsers(userIds, notification, data = {}) {
-    try {
-      const users = await User.find({ 
-        _id: { $in: userIds },
-        fcmToken: { $exists: true, $ne: null }
-      });
-
-      const tokens = users.map(user => user.fcmToken).filter(token => token);
-
-      if (tokens.length === 0) {
-        return { success: false, error: 'No valid FCM tokens found' };
-      }
-
-      return await sendNotificationToMultipleDevices(tokens, notification, data);
-    } catch (error) {
-      console.error('Error sending notification to users:', error);
-      return { success: false, error: error.message };
+      console.error('Error rescheduling event reminders:', error);
     }
   }
 
@@ -122,14 +99,19 @@ class NotificationService {
    */
   static async processEventReminder(jobData) {
     try {
-      const { eventId, eventName, eventLocation, reminderHours } = jobData;
+      const { eventId, eventName, eventLocation, reminderHours, reminderMinutes } = jobData;
       
-      // Get event participants
-      const event = await Event.findById(eventId).select('participants');
+      // Get event to verify it still exists and is active
+      const event = await Event.findById(eventId).select('participants isOpen');
       
       if (!event) {
         console.log(`Event ${eventId} not found, skipping reminder`);
         return { success: false, error: 'Event not found' };
+      }
+
+      if (!event.isOpen) {
+        console.log(`Event ${eventId} is closed, skipping reminder`);
+        return { success: false, error: 'Event is closed' };
       }
 
       // Get users with notification settings enabled
@@ -145,22 +127,31 @@ class NotificationService {
 
       const tokens = users.map(user => user.fcmToken);
       
+      // Create appropriate reminder message
+      let timeText;
+      if (reminderHours) {
+        timeText = `${reminderHours} hour${reminderHours > 1 ? 's' : ''}`;
+      } else {
+        timeText = `${reminderMinutes} minute${reminderMinutes > 1 ? 's' : ''}`;
+      }
+
       const notification = {
-        title: `Event Reminder - ${eventName}`,
-        body: `${eventName} starts in ${reminderHours} hour${reminderHours > 1 ? 's' : ''} at ${eventLocation}`
+        title: `⏰ Event Reminder - ${eventName}`,
+        body: `${eventName} starts in ${timeText}${eventLocation ? ` at ${eventLocation}` : ''}`
       };
 
       const data = {
         type: 'event_reminder',
         eventId: eventId.toString(),
         eventName,
-        eventLocation,
-        reminderHours: reminderHours.toString()
+        eventLocation: eventLocation || '',
+        reminderTime: reminderHours ? `${reminderHours}h` : `${reminderMinutes}m`,
+        timestamp: Date.now().toString()
       };
 
       const result = await sendNotificationToMultipleDevices(tokens, notification, data);
       
-      console.log(`Sent ${reminderHours}h reminder for event ${eventName} to ${users.length} users`);
+      console.log(`Sent ${timeText} reminder for event ${eventName} to ${users.length} users`);
       return result;
     } catch (error) {
       console.error('Error processing event reminder:', error);
@@ -169,11 +160,40 @@ class NotificationService {
   }
 
   /**
-   * Send event update notification
-   * @param {Object} event - Updated event object
-   * @param {string} updateType - Type of update (e.g., 'updated', 'cancelled')
+   * Send notification when user joins an event
+   * @param {Object} event - Event object
+   * @param {Object} user - User who joined
    */
-  static async sendEventUpdateNotification(event, updateType = 'updated') {
+  static async sendEventJoinNotification(event, user) {
+    try {
+      // Notify event creator
+      const creator = await User.findById(event.creator._id);
+      if (creator && creator.fcmToken && creator.notificationSettings.generalNotifications) {
+        const notification = {
+          title: `New Participant - ${event.name}`,
+          body: `${user.name} ${user.surname} joined your event`
+        };
+
+        const data = {
+          type: 'event_join',
+          eventId: event._id.toString(),
+          eventName: event.name,
+          participantName: `${user.name} ${user.surname}`,
+          timestamp: Date.now().toString()
+        };
+
+        await sendNotificationToDevice(creator.fcmToken, notification, data);
+      }
+    } catch (error) {
+      console.error('Error sending event join notification:', error);
+    }
+  }
+
+  /**
+   * Send notification when event is cancelled
+   * @param {Object} event - Cancelled event object
+   */
+  static async sendEventCancellationNotification(event) {
     try {
       const users = await User.find({
         _id: { $in: event.participants },
@@ -188,38 +208,24 @@ class NotificationService {
       const tokens = users.map(user => user.fcmToken);
       
       const notification = {
-        title: `Event ${updateType.charAt(0).toUpperCase() + updateType.slice(1)}`,
-        body: `${event.name} has been ${updateType}. Check the app for details.`
+        title: `Event Cancelled - ${event.name}`,
+        body: `Unfortunately, ${event.name} has been cancelled. We apologize for any inconvenience.`
       };
 
       const data = {
-        type: 'event_update',
+        type: 'event_cancelled',
         eventId: event._id.toString(),
         eventName: event.name,
-        updateType
+        timestamp: Date.now().toString()
       };
+
+      // Cancel scheduled reminders since event is cancelled
+      await this.cancelEventReminders(event._id);
 
       return await sendNotificationToMultipleDevices(tokens, notification, data);
     } catch (error) {
-      console.error('Error sending event update notification:', error);
+      console.error('Error sending event cancellation notification:', error);
       return { success: false, error: error.message };
-    }
-  }
-
-  /**
-   * Add notification job to queue
-   * @param {string} type - Notification type
-   * @param {Object} data - Notification data
-   * @param {Object} options - Queue options
-   */
-  static async addNotificationJob(type, data, options = {}) {
-    try {
-      const job = await notificationQueue.add(type, data, options);
-      console.log(`Added notification job ${job.id} of type ${type}`);
-      return job;
-    } catch (error) {
-      console.error('Error adding notification job:', error);
-      throw error;
     }
   }
 }
