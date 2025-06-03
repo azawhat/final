@@ -362,8 +362,6 @@ router.delete("/delete-event/:eventId/:userId", async (req, res) => {
   }
 });
 
-const NotificationService = require("../services/notificationService");
-
 // Hook for when an event is created
 const onEventCreated = async (event) => {
   try {
