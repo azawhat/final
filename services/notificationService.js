@@ -17,7 +17,9 @@ class NotificationService {
       const reminderIntervals = [
         { hours: 24, delay: 24 * 60 * 60 * 1000 },
         { hours: 5, delay: 5 * 60 * 60 * 1000 },
-        { minutes: 15, delay: 15 * 60 * 1000 }
+        { minutes: 15, delay: 15 * 60 * 1000 },
+        { minutes: 1, delay: 1 * 60 * 1000 }
+
       ];
 
       for (const interval of reminderIntervals) {

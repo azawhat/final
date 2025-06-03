@@ -109,7 +109,7 @@ const sendNotificationToMultipleDevices = async (tokens, notification, data = {}
       }
     };
 
-    const response = await messaging.sendMulticast(message);
+    const response = await messaging.sendEachForMulticast(message);
     console.log('Successfully sent messages:', response);
     
     // Handle failed tokens

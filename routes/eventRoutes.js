@@ -78,13 +78,12 @@ router.post("/create", authMiddleware, async (req, res) => {
     if (!name || !description || !location || !startDate) {
       return res.status(400).json({ message: "Required fields missing" });
     }
-
-    // Parse dates
+    // Parse and validate startDate
     const parsedStartDate = new Date(startDate);
-
     if (isNaN(parsedStartDate.getTime())) {
-      return res.status(400).json({ message: "Invalid startDate format", receivedValue: startDate });
+      return res.status(400).json({ message: "Invalid startDate format" });
     }
+
     const user = await User.findById(creatorId);
     if (!user) return res.status(404).json({ message: "Creator not found" });
 
