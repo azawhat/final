@@ -31,34 +31,52 @@ const EventSchema = new mongoose.Schema({
 
 EventSchema.post("save", async function (doc) {
   try {
-    
-    // Find all events created by this user
     const events = await mongoose.model("Event").find({ "creator._id": doc.creator._id });
-    
-    // Only calculate from events that have been rated (ratingCount > 0)
+
     const ratedEvents = events.filter(event => (event.ratingCount || 0) > 0);
-    
-    if (ratedEvents.length > 0) {
-      // Sum all event ratings and divide by number of rated events
-      const totalRating = ratedEvents.reduce((sum, event) => {
-        const rating = Number(event.eventRating) || 0;
-        console.log(`Event "${event.name}" rating: ${rating}`);
-        return sum + rating;
-      }, 0);
+
+    const Club = mongoose.model("Club");
+    const clubs = await Club.find({ "creator._id": doc.creator._id });
+    const ratedClubs = clubs.filter(club => (club.ratingCount || 0) > 0);
+
+    let finalUserRating = 0;
+    let totalRatedItems = 0;
+
+
+    if (ratedEvents.length > 0 && ratedClubs.length > 0) {
+
+      const eventsTotal = ratedEvents.reduce((sum, event) => sum + (Number(event.eventRating) || 0), 0);
+      const clubsTotal = ratedClubs.reduce((sum, club) => sum + (Number(club.clubRating) || 0), 0);
       
-      const newUserRating = totalRating / ratedEvents.length;
-      const roundedRating = Math.round(newUserRating * 100) / 100;
+      totalRatedItems = ratedEvents.length + ratedClubs.length;
+      finalUserRating = (eventsTotal + clubsTotal) / totalRatedItems;
       
-      // Update the User model with the average rating of their events
+    } else if (ratedEvents.length > 0) {
+
+      const eventsTotal = ratedEvents.reduce((sum, event) => sum + (Number(event.eventRating) || 0), 0);
+      finalUserRating = eventsTotal / ratedEvents.length;
+      totalRatedItems = ratedEvents.length;
+
+    } else if (ratedClubs.length > 0) {
+
+      const clubsTotal = ratedClubs.reduce((sum, club) => sum + (Number(club.clubRating) || 0), 0);
+      finalUserRating = clubsTotal / ratedClubs.length;
+      totalRatedItems = ratedClubs.length;
+
+    }
+
+    if (totalRatedItems > 0) {
+      const finalRoundedRating = Math.round(finalUserRating * 100) / 100;
+
       const updatedUser = await User.findByIdAndUpdate(
-        doc.creator._id, 
-        { rating: roundedRating },
+        doc.creator._id,
+        { rating: finalRoundedRating },
         { new: true }
       );
-      
+
+      console.log(`Updated user rating to: ${updatedUser?.rating} (from ${totalRatedItems} rated items)`);
     } else {
-      // If no events are rated, set user rating to 0
-      console.log(`No rated events found, setting user rating to 0`);
+      console.log(`No rated events or clubs found, setting user rating to 0`);
       await User.findByIdAndUpdate(doc.creator._id, { rating: 0 });
     }
   } catch (error) {

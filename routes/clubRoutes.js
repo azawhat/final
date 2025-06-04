@@ -15,7 +15,7 @@ router.post("/create", authMiddleware, async (req, res) => {
       isOpen,
       category,
       clubTag,
-      participantId
+      participants
     } = req.body;
 
     if (!name || !description || !category) {
@@ -43,11 +43,6 @@ router.post("/create", authMiddleware, async (req, res) => {
     await club.save();
 
     await User.findByIdAndUpdate(creatorId, { $addToSet: { joinedClubs: club._id } });
-
-    await User.updateMany(
-      { _id: { $in: participants.map(p => p._id) } },
-      { $addToSet: { joinedClubs: club._id } }
-    );
 
     res.status(201).json(club._id.toString());
   } catch (error) {
@@ -192,5 +187,68 @@ router.delete("/delete-club/:clubId/:userId", async (req, res) => {
   }
 });
 
+router.post("/rate/:clubId", authMiddleware, async (req, res) => {
+  try {
+    const { clubId } = req.params;
+    const { rating } = req.body;
+    const userId = req.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(clubId)) {
+      return res.status(400).json({ error: "Invalid clubId" });
+    }
+
+    if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
+      return res.status(400).json({ 
+        error: "Rating must be a number between 1 and 5" 
+      });
+    }
+
+
+    const club = await Club.findById(clubId);
+    if (!club) {
+      return res.status(404).json({ message: "Club not found" });
+    }
+
+    if (club.creator._id.toString() === userId.toString()) {
+      return res.status(400).json({ 
+        message: "You cannot rate your own club" 
+      });
+    }
+
+    if (!club.participants.includes(userId)) {
+      return res.status(400).json({ 
+        message: "You must be a member to rate this club" 
+      });
+    }
+
+    const currentRating = club.clubRating || 0;
+    const currentCount = club.ratingCount || 0;
+    
+    const totalRating = (currentRating * currentCount) + rating;
+    const newCount = currentCount + 1;
+    const newAverageRating = totalRating / newCount;
+
+    club.clubRating = Math.round(newAverageRating * 100) / 100;
+    club.ratingCount = newCount;
+
+    const updatedClub = await club.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Club rated successfully",
+      data: {
+        clubId: clubId,
+        clubName: club.name,
+        userRating: rating,
+        newAverageRating: updatedClub.clubRating,
+        totalRatings: updatedClub.ratingCount
+      }
+    });
+
+  } catch (error) {
+    console.error("Error rating club:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 module.exports = router;
