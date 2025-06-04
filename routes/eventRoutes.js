@@ -56,7 +56,8 @@ router.post("/create", authMiddleware, async (req, res) => {
       category,
       eventTags,
       eventPicture,
-      eventPosts,     
+      eventPosts,  
+      eventRating: user.rating || 0,
       isOpen: isOpen !== undefined ? isOpen : true,
       isActive: true, // Set as active by default
       location,
