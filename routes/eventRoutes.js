@@ -66,11 +66,8 @@ router.post("/create", authMiddleware, async (req, res) => {
       eventTags,
       eventPicture,
       eventPosts,
-      eventProgramme,
       isOpen,
-      eventRating,
       location,
-      maxParticipants,
       startDate
     } = req.body;
 
@@ -95,11 +92,9 @@ router.post("/create", authMiddleware, async (req, res) => {
       eventTags,
       eventPicture,
       eventPosts,     
-      eventProgramme,
       isOpen: isOpen !== undefined ? isOpen : true,
       eventRating,
       location,
-      maxParticipants,
       startDate: parsedStartDate,
       participants: [],
       creator: {
@@ -385,6 +380,70 @@ const onEventUpdated = async (oldEvent, newEvent) => {
     console.error('Error rescheduling reminders for updated event:', error);
   }
 };
+
+router.post("/rate/:eventId", authMiddleware, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { rating } = req.body;
+    const userId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return res.status(400).json({ error: "Invalid eventId" });
+    }
+
+    if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
+      return res.status(400).json({ 
+        error: "Rating must be a number between 1 and 5" 
+      });
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    if (event.creator._id.toString() === userId.toString()) {
+      return res.status(400).json({ 
+        message: "You cannot rate your own event" 
+      });
+    }
+
+    // Check if user has participated in the event (optional validation)
+    if (!event.participants.includes(userId)) {
+      return res.status(400).json({ 
+        message: "You must be a participant to rate this event" 
+      });
+    }
+
+    const currentRating = event.eventRating || 0;
+    const currentCount = event.ratingCount || 0;
+    
+    const totalRating = (currentRating * currentCount) + rating;
+    const newCount = currentCount + 1;
+    const newAverageRating = totalRating / newCount;
+
+    event.eventRating = Math.round(newAverageRating * 100) / 100;
+    event.ratingCount = newCount;
+
+    const updatedEvent = await event.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Event rated successfully",
+      data: {
+        eventId: eventId,
+        eventName: event.name,
+        userRating: rating,
+        newAverageRating: updatedEvent.eventRating,
+        totalRatings: updatedEvent.ratingCount
+      }
+    });
+
+  } catch (error) {
+    console.error("Error rating event:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 
 module.exports = router;

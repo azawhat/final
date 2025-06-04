@@ -13,9 +13,6 @@ const serviceAccount = {
   auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
   client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
 };
-// Replace your current console.log with:
-console.log('PRIVATE KEY:', serviceAccount.private_key?.substring(0, 50) + '...' + serviceAccount.private_key?.slice(-20));
-console.log('Key contains newlines:', serviceAccount.private_key?.includes('\n') ? 'YES' : 'NO');
 
 if (!admin.apps.length) {
   admin.initializeApp({

@@ -11,8 +11,9 @@ const EventSchema = new mongoose.Schema({
   eventProgramme: { type: String },
   isOpen: { type: Boolean, default: true },
   chatLink: { type: String },
-  locationLink: { type: String },
-  eventRating: { type: Number },
+  location: { type: String },
+  eventRating: { type: Number, default: 0 },
+  ratingCount: { type: Number, default: 0 },
   creator: {
     _id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     name: { type: String, required: true },
@@ -28,21 +29,41 @@ const EventSchema = new mongoose.Schema({
   startDate: { type: String }
 });
 
-EventSchema.post("save", async function () {
+EventSchema.post("save", async function (doc) {
   try {
-    // Use this.creator._id instead of this.creatorId
-    const events = await mongoose.model("Event").find({ "creator._id": this.creator._id });
-    // Compute total rating and count of rated events
-    const totalRatings = events.reduce((sum, event) => sum + (Number(event.eventRating) || 0), 0);
-    const ratingCount = events.length;
-    // Calculate the average rating
-    const newRating = ratingCount > 0 ? totalRatings / ratingCount : 0;
-    // Update the User model
-    await User.findByIdAndUpdate(this.creator._id, { rating: newRating });
+    
+    // Find all events created by this user
+    const events = await mongoose.model("Event").find({ "creator._id": doc.creator._id });
+    
+    // Only calculate from events that have been rated (ratingCount > 0)
+    const ratedEvents = events.filter(event => (event.ratingCount || 0) > 0);
+    
+    if (ratedEvents.length > 0) {
+      // Sum all event ratings and divide by number of rated events
+      const totalRating = ratedEvents.reduce((sum, event) => {
+        const rating = Number(event.eventRating) || 0;
+        console.log(`Event "${event.name}" rating: ${rating}`);
+        return sum + rating;
+      }, 0);
+      
+      const newUserRating = totalRating / ratedEvents.length;
+      const roundedRating = Math.round(newUserRating * 100) / 100;
+      
+      // Update the User model with the average rating of their events
+      const updatedUser = await User.findByIdAndUpdate(
+        doc.creator._id, 
+        { rating: roundedRating },
+        { new: true }
+      );
+      
+    } else {
+      // If no events are rated, set user rating to 0
+      console.log(`No rated events found, setting user rating to 0`);
+      await User.findByIdAndUpdate(doc.creator._id, { rating: 0 });
+    }
   } catch (error) {
     console.error("Error updating user rating:", error);
   }
 });
 
-// Create and export the Event model directly
 module.exports = mongoose.model("Event", EventSchema);
