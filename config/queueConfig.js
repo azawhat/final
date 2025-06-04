@@ -60,11 +60,11 @@ eventReminderQueue.on('stalled', (job) => {
 
 // Health check for Redis connection
 redis.on('connect', () => {
-  console.log('📡 Redis connected successfully for notification queues');
+  console.log('Redis connected successfully for notification queues');
 });
 
 redis.on('error', (err) => {
-  console.error('❌ Redis connection error:', err);
+  console.error('Redis connection error:', err);
 });
 
 redis.on('reconnecting', () => {

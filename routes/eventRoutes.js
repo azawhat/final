@@ -5,15 +5,84 @@ const User = require("../models/User");
 const authMiddleware = require("../middleware/authMiddleware");
 const NotificationService = require("../services/notificationService");
 const router = express.Router();
+const EventExpirationService = require('../services/eventExpirationService');
 
 // Get all events
 router.get("/", async (req, res) => {
   try {
-    const events = await Event.find();
+    // Only return active events
+    const events = await Event.find({ isActive: true });
     res.status(200).json(events);
   } catch (error) {
     console.error("Error fetching events:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Update the create event route to schedule expiration
+router.post("/create", authMiddleware, async (req, res) => {
+  try {
+    const creatorId = req.user._id;
+    const {
+      name,
+      description,
+      category,
+      eventTags,
+      eventPicture,
+      eventPosts,
+      isOpen,
+      location,
+      startDate
+    } = req.body;
+
+    // Validate required fields
+    if (!name || !description || !location || !startDate) {
+      return res.status(400).json({ message: "Required fields missing" });
+    }
+    
+    // Parse and validate startDate - keep as string but validate it can be parsed
+    const parsedStartDate = new Date(startDate);
+    if (isNaN(parsedStartDate.getTime())) {
+      return res.status(400).json({ message: "Invalid startDate format" });
+    }
+
+    const user = await User.findById(creatorId);
+    if (!user) return res.status(404).json({ message: "Creator not found" });
+
+    // Create new event
+    const event = new Event({
+      name,
+      description,
+      category,
+      eventTags,
+      eventPicture,
+      eventPosts,     
+      isOpen: isOpen !== undefined ? isOpen : true,
+      isActive: true, // Set as active by default
+      location,
+      startDate: startDate, // Store as string from frontend
+      participants: [],
+      creator: {
+        _id: user._id,
+        name: user.name,
+        surname: user.surname,
+        username: user.username,
+      }
+    });
+
+    await event.save();
+    await onEventCreated(event);
+    
+    // Schedule event reminder notifications
+    await NotificationService.scheduleEventReminders(event);
+    
+    // Schedule event expiration (24 hours after start)
+    await EventExpirationService.scheduleEventExpiration(event);
+
+    res.status(201).json(event);
+  } catch (error) {
+    console.error("Error creating event:", error);
+    res.status(400).json({ error: error.message });
   }
 });
 
@@ -56,66 +125,6 @@ router.get("/:eventId/attendances", async (req, res) => {
   }
 });
 
-router.post("/create", authMiddleware, async (req, res) => {
-  try {
-    const creatorId = req.user._id;
-    const {
-      name,
-      description,
-      category,
-      eventTags,
-      eventPicture,
-      eventPosts,
-      isOpen,
-      location,
-      startDate
-    } = req.body;
-
-    // Validate required fields
-    if (!name || !description || !location || !startDate) {
-      return res.status(400).json({ message: "Required fields missing" });
-    }
-    // Parse and validate startDate
-    const parsedStartDate = new Date(startDate);
-    if (isNaN(parsedStartDate.getTime())) {
-      return res.status(400).json({ message: "Invalid startDate format" });
-    }
-
-    const user = await User.findById(creatorId);
-    if (!user) return res.status(404).json({ message: "Creator not found" });
-
-    // Create new event
-    const event = new Event({
-      name,
-      description,
-      category,
-      eventTags,
-      eventPicture,
-      eventPosts,     
-      isOpen: isOpen !== undefined ? isOpen : true,
-      eventRating,
-      location,
-      startDate: parsedStartDate,
-      participants: [],
-      creator: {
-        _id: user._id,
-        name: user.name,
-        surname: user.surname,
-        username: user.username,
-      }
-    });
-
-    await event.save();
-    await onEventCreated(event);
-    // Schedule event reminder notifications
-    await NotificationService.scheduleEventReminders(event);
-
-    res.status(201).json(event);
-  } catch (error) {
-    console.error("Error creating event:", error);
-    res.status(400).json({ error: error.message });
-  }
-});
 
 // Join event
 router.post("/join/:eventId", authMiddleware, async (req, res) => {
@@ -337,6 +346,9 @@ router.delete("/delete-event/:eventId/:userId", async (req, res) => {
 
     // Cancel all scheduled reminders for this event
     await NotificationService.cancelEventReminders(eventId);
+    
+    // Cancel expiration job for this event
+    await EventExpirationService.cancelEventExpiration(eventId);
 
     // Send cancellation notification to participants
     if (event.participants.length > 0) {

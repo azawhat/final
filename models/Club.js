@@ -75,7 +75,6 @@ ClubSchema.post("save", async function (doc) {
           { new: true }
         );
 
-        console.log(`Updated user rating to: ${updatedUser?.rating} (from ${totalRatedItems} rated items)`);
       }
     } else {
       const Event = mongoose.model("Event");

@@ -49,9 +49,6 @@ eventReminderQueue.on('global:completed', async () => {
   }
 });
 
-console.log('📧 Event reminder processor started and ready to process automatic reminders');
-console.log('⏰ Will send reminders at: 24 hours, 5 hours, and 15 minutes before events');
-
 module.exports = {
   eventReminderQueue
 };

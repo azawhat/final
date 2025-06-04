@@ -29,6 +29,7 @@ const profileRoutes = require("./routes/profileRoutes");
 const shareRoutes = require("./routes/shareRoutes");
 const applyRoutes = require("./routes/applyRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const EventExpirationService = require('./services/eventExpirationService');
 
 // Use Routes
 app.use("/users", userRoutes);
@@ -40,11 +41,12 @@ app.use("/profile", profileRoutes);
 app.use("/share", shareRoutes);
 app.use("/applications", applyRoutes);
 app.use("/notifications", notificationRoutes);
+EventExpirationService.initializeExistingEvents().catch(console.error);
 
 // Start Server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log('🔔 Notification system initialized');
+  console.log('Notification system initialized');
 });
 
 // Graceful shutdown

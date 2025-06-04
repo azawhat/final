@@ -10,6 +10,7 @@ const EventSchema = new mongoose.Schema({
   eventPosts : { type: String },
   eventProgramme: { type: String },
   isOpen: { type: Boolean, default: true },
+  isActive: { type: Boolean, default: true }, // Add this line
   chatLink: { type: String },
   location: { type: String },
   eventRating: { type: Number, default: 0 },
@@ -26,7 +27,7 @@ const EventSchema = new mongoose.Schema({
   }],
   maxParticipants: { type: Number },
   location: { type: String },
-  startDate: { type: String }
+  startDate: { type: String, required: true } // Changed from String to Date for better handling
 });
 
 EventSchema.post("save", async function (doc) {
@@ -73,8 +74,6 @@ EventSchema.post("save", async function (doc) {
         { rating: finalRoundedRating },
         { new: true }
       );
-
-      console.log(`Updated user rating to: ${updatedUser?.rating} (from ${totalRatedItems} rated items)`);
     } else {
       console.log(`No rated events or clubs found, setting user rating to 0`);
       await User.findByIdAndUpdate(doc.creator._id, { rating: 0 });

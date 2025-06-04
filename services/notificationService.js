@@ -48,7 +48,7 @@ class NotificationService {
           });
 
           const timeUnit = interval.hours ? `${interval.hours}h` : `${interval.minutes}m`;
-          console.log(`Scheduled ${timeUnit} reminder for event ${event.name} at ${reminderTime}`);
+
         }
       }
     } catch (error) {
