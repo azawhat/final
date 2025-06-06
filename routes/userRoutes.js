@@ -26,20 +26,45 @@ router.delete("/delete-user/:userId", async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ error: "Invalid userId." });
     }
-    
-    // Remove user from events and clubs
-    await Event.updateMany({}, { $pull: { participants: userId } });
-    await Club.updateMany({}, { $pull: { members: userId } });
 
-    // Delete user
-    const deletedUser = await User.findByIdAndDelete(userId);
-    if (!deletedUser) {
+    const user = await User.findById(userId);
+    if (!user) {
       return res.status(404).json({ error: "User not found." });
     }
 
-    res.json({ message: "User deleted successfully.", deletedUser });
+    const userEvents = await Event.find({ "creator._id": userId });
+    
+    const userClubs = await Club.find({ "creator._id": userId });
+
+    await Event.updateMany({}, { $pull: { participants: userId } });
+    
+    await Club.updateMany({}, { $pull: { participants: userId } });
+
+    await User.updateMany({}, { $pull: { joinedClubs: { $in: userClubs.map(club => club._id) } } });
+
+    await User.updateMany({}, { $pull: { visitedEvents: { $in: userEvents.map(event => event._id) } } });
+
+    const deletedEventsResult = await Event.deleteMany({ "creator._id": userId });
+
+    const deletedClubsResult = await Club.deleteMany({ "creator._id": userId });
+
+    const deletedUser = await User.findByIdAndDelete(userId);
+
+    res.json({ 
+      message: "User and all associated content deleted successfully.", 
+      deletedUser: {
+        _id: deletedUser._id,
+        username: deletedUser.username,
+        email: deletedUser.email,
+        name: deletedUser.name,
+        surname: deletedUser.surname
+      },
+      deletedEvents: deletedEventsResult.deletedCount,
+      deletedClubs: deletedClubsResult.deletedCount
+    });
+
   } catch (error) {
-    console.error(error);
+    console.error("Error deleting user:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 });

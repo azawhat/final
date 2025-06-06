@@ -124,7 +124,7 @@ router.get("/", authMiddleware, async (req, res) => {
 
 router.get("/all", async (req, res) => {
   try {
-    const events = await Event.find({ isActive: true });
+    const events = await Event.find();
     res.status(200).json(events);
   } catch (error) {
     console.error("Error fetching events:", error);
@@ -187,7 +187,6 @@ router.post("/recommendations/retrain", authMiddleware, async (req, res) => {
     }
 });
 
-// Update the create event route to schedule expiration
 router.post("/create", authMiddleware, async (req, res) => {
   try {
     const creatorId = req.user._id;

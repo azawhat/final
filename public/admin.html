@@ -194,7 +194,7 @@
             try {
                 const [usersRes, eventsRes, clubsRes] = await Promise.all([
                     fetch(`${API_BASE}/users`),
-                    fetch(`${API_BASE}/events`),
+                    fetch(`${API_BASE}/events/all`),
                     fetch(`${API_BASE}/clubs`)
                 ]);
 
@@ -263,7 +263,7 @@
 
         async function loadEvents() {
             try {
-                const response = await fetch(`${API_BASE}/events`);
+                const response = await fetch(`${API_BASE}/events/all`);
                 const events = await response.json();
                 currentData.events = events;
                 displayEvents(events);

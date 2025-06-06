@@ -14,7 +14,7 @@ const UserSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now},
 
   // User preferences
-  rating: { type: Number},
+  rating: { type: Number, default: 5 },
   visitedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Event" }],
   joinedClubs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Club" }], 
 
