@@ -8,9 +8,8 @@ const EventSchema = new mongoose.Schema({
   eventTags: { type: String },
   eventPicture: { type: String },
   eventPosts : { type: String },
-  eventProgramme: { type: String },
   isOpen: { type: Boolean, default: true },
-  isActive: { type: Boolean, default: true }, // Add this line
+  isActive: { type: Boolean, default: true }, 
   chatLink: { type: String },
   location: { type: String },
   eventRating: { type: Number, default: 0 },
@@ -27,7 +26,7 @@ const EventSchema = new mongoose.Schema({
   }],
   maxParticipants: { type: Number },
   location: { type: String },
-  startDate: { type: String, required: true } // Changed from String to Date for better handling
+  startDate: { type: String, required: true } 
 });
 
 EventSchema.post("save", async function (doc) {

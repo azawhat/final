@@ -59,9 +59,9 @@ router.post("/create", authMiddleware, async (req, res) => {
       eventPosts,  
       eventRating: user.rating || 0,
       isOpen: isOpen !== undefined ? isOpen : true,
-      isActive: true, // Set as active by default
+      isActive: true, 
       location,
-      startDate: startDate, // Store as string from frontend
+      startDate: startDate, 
       participants: [],
       creator: {
         _id: user._id,
