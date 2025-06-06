@@ -11,7 +11,6 @@ const path = require('path');
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ error: "Invalid userId" });
     }
@@ -38,36 +37,38 @@ router.get("/", authMiddleware, async (req, res) => {
         console.error(`Python script failed with code ${code}`);
         try {
           const fallbackEvents = await Event.find({ isActive: true });
-          return res.status(200).json(fallbackEvents);
+          // Return just the IDs as strings
+          const eventIds = fallbackEvents.map(event => event._id.toString());
+          return res.status(200).json(eventIds);
         } catch (fallbackError) {
           console.error("Fallback query failed:", fallbackError);
-          return res.status(500).json({ 
+          return res.status(500).json({
             error: "Recommendation service error",
             details: errorOutput
           });
         }
       }
-      
+
       try {
         const result = JSON.parse(output);
-        
         if (result.error) {
           const fallbackEvents = await Event.find({ isActive: true });
-          return res.status(200).json(fallbackEvents);
+          const eventIds = fallbackEvents.map(event => event._id.toString());
+          return res.status(200).json(eventIds);
         }
-        
+
         const recommendedEventIds = result.recommendations.map(rec => rec.event_id);
-        
         if (recommendedEventIds.length === 0) {
           const fallbackEvents = await Event.find({ isActive: true });
-          return res.status(200).json(fallbackEvents);
+          const eventIds = fallbackEvents.map(event => event._id.toString());
+          return res.status(200).json(eventIds);
         }
-        
+
         const recommendedEvents = await Event.find({
           _id: { $in: recommendedEventIds },
           isActive: true
         });
-        
+
         const scoreMap = {};
         result.recommendations.forEach(rec => {
           scoreMap[rec.event_id] = {
@@ -76,7 +77,7 @@ router.get("/", authMiddleware, async (req, res) => {
             hybridScore: rec.hybrid_score || rec.score || 0
           };
         });
-        
+
         const eventsWithScores = recommendedEvents
           .map(event => {
             const scores = scoreMap[event._id.toString()] || {
@@ -92,17 +93,20 @@ router.get("/", authMiddleware, async (req, res) => {
             };
           })
           .sort((a, b) => b.hybridScore - a.hybridScore);
-        
-        res.status(200).json(eventsWithScores);
-        
+
+        // Return just the event IDs as strings in sorted order
+        const sortedEventIds = eventsWithScores.map(event => event._id.toString());
+        res.status(200).json(sortedEventIds);
+
       } catch (e) {
         console.error("Error parsing recommendation output:", e);
         try {
           const fallbackEvents = await Event.find({ isActive: true });
-          res.status(200).json(fallbackEvents);
+          const eventIds = fallbackEvents.map(event => event._id.toString());
+          res.status(200).json(eventIds);
         } catch (fallbackError) {
           console.error("Fallback query failed:", fallbackError);
-          res.status(500).json({ 
+          res.status(500).json({
             error: "Error processing recommendations",
             details: e.message
           });
@@ -114,7 +118,8 @@ router.get("/", authMiddleware, async (req, res) => {
     console.error("Recommendation endpoint error:", error);
     try {
       const fallbackEvents = await Event.find({ isActive: true });
-      res.status(200).json(fallbackEvents);
+      const eventIds = fallbackEvents.map(event => event._id.toString());
+      res.status(200).json(eventIds);
     } catch (fallbackError) {
       console.error("Fallback query failed:", fallbackError);
       res.status(500).json({ error: "Internal server error" });
