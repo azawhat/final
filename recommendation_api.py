@@ -1,7 +1,8 @@
 import sys
 import json
 from recommendation_system import EventRecommender
-
+from dotenv import load_dotenv
+import os
 def main():
     try:
         if len(sys.argv) < 2:
@@ -10,8 +11,8 @@ def main():
         
         arg = sys.argv[1]
         print(f"Starting process for: {arg}", file=sys.stderr)
-        
-        recommender = EventRecommender("mongodb+srv://azamat:azamat@seeyadb.wkawg.mongodb.net/SeeYaDB?retryWrites=true&w=majority")
+        uri = os.getenv("MONGO_URI")
+        recommender = EventRecommender(uri)
         
         if arg == "--retrain":
             print("Retraining model...", file=sys.stderr)
