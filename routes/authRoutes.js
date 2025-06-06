@@ -198,9 +198,6 @@ router.post("/login", async (req, res) => {
     const { email, password, fcmToken } = req.body;
 
     const user = await User.findOne({ email })
-      .populate("joinedClubs")
-      .populate("visitedEvents"); 
-
     if (!user) return res.status(400).json({ error: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);
