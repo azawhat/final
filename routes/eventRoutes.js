@@ -6,125 +6,12 @@ const authMiddleware = require("../middleware/authMiddleware");
 const NotificationService = require("../services/notificationService");
 const router = express.Router();
 const EventExpirationService = require('../services/eventExpirationService');
-const { spawn } = require('child_process');
-const path = require('path');
-router.get("/", authMiddleware, async (req, res) => {
+
+// Get all events
+router.get("/", async (req, res) => {
   try {
-    const userId = req.user.id;
-    
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ error: "Invalid userId" });
-    }
-
-    const pythonProcess = spawn('python', [
-      path.join(__dirname, '../recommendation_api.py'),
-      userId
-    ]);
-
-    let output = '';
-    let errorOutput = '';
-
-    pythonProcess.stdout.on('data', (data) => {
-      output += data.toString();
-    });
-
-    pythonProcess.stderr.on('data', (data) => {
-      errorOutput += data.toString();
-      console.error(`Python stderr: ${data}`);
-    });
-
-    pythonProcess.on('close', async (code) => {
-      if (code !== 0) {
-        console.error(`Python script failed with code ${code}`);
-        try {
-          const fallbackEvents = await Event.find({ isActive: true });
-          return res.status(200).json(fallbackEvents);
-        } catch (fallbackError) {
-          console.error("Fallback query failed:", fallbackError);
-          return res.status(500).json({ 
-            error: "Recommendation service error",
-            details: errorOutput
-          });
-        }
-      }
-      
-      try {
-        const result = JSON.parse(output);
-        
-        if (result.error) {
-          const fallbackEvents = await Event.find({ isActive: true });
-          return res.status(200).json(fallbackEvents);
-        }
-        
-        const recommendedEventIds = result.recommendations.map(rec => rec.event_id);
-        
-        if (recommendedEventIds.length === 0) {
-          const fallbackEvents = await Event.find({ isActive: true });
-          return res.status(200).json(fallbackEvents);
-        }
-        
-        const recommendedEvents = await Event.find({
-          _id: { $in: recommendedEventIds },
-          isActive: true
-        });
-        
-        const scoreMap = {};
-        result.recommendations.forEach(rec => {
-          scoreMap[rec.event_id] = {
-            contentScore: rec.content_score || 0,
-            collabScore: rec.collab_score || 0,
-            hybridScore: rec.hybrid_score || rec.score || 0
-          };
-        });
-        
-        const eventsWithScores = recommendedEvents
-          .map(event => {
-            const scores = scoreMap[event._id.toString()] || {
-              contentScore: 0,
-              collabScore: 0,
-              hybridScore: 0
-            };
-            return {
-              ...event.toObject(),
-              contentScore: scores.contentScore,
-              collabScore: scores.collabScore,
-              hybridScore: scores.hybridScore
-            };
-          })
-          .sort((a, b) => b.hybridScore - a.hybridScore);
-        
-        res.status(200).json(eventsWithScores);
-        
-      } catch (e) {
-        console.error("Error parsing recommendation output:", e);
-        try {
-          const fallbackEvents = await Event.find({ isActive: true });
-          res.status(200).json(fallbackEvents);
-        } catch (fallbackError) {
-          console.error("Fallback query failed:", fallbackError);
-          res.status(500).json({ 
-            error: "Error processing recommendations",
-            details: e.message
-          });
-        }
-      }
-    });
-
-  } catch (error) {
-    console.error("Recommendation endpoint error:", error);
-    try {
-      const fallbackEvents = await Event.find({ isActive: true });
-      res.status(200).json(fallbackEvents);
-    } catch (fallbackError) {
-      console.error("Fallback query failed:", fallbackError);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  }
-});
-
-router.get("/all", async (req, res) => {
-  try {
-    const events = await Event.find();
+    // Only return active events
+    const events = await Event.find({ isActive: true });
     res.status(200).json(events);
   } catch (error) {
     console.error("Error fetching events:", error);
@@ -132,61 +19,7 @@ router.get("/all", async (req, res) => {
   }
 });
 
-// Переобучить модель (только для админов)
-router.post("/recommendations/retrain", authMiddleware, async (req, res) => {
-    try {
-        if (!req.user.isAdmin) {
-            return res.status(403).json({ error: "Only admins can retrain the model" });
-        }
-
-        const pythonProcess = spawn('python', [
-            path.join(__dirname, '../recommendation_api.py'),
-            '--retrain'
-        ]);
-
-        let output = '';
-        let errorOutput = '';
-
-        pythonProcess.stdout.on('data', (data) => {
-            output += data.toString();
-        });
-
-        pythonProcess.stderr.on('data', (data) => {
-            errorOutput += data.toString();
-        });
-
-        pythonProcess.on('close', (code) => {
-            if (code !== 0) {
-                console.error(`Retraining failed with code ${code}: ${errorOutput}`);
-                try {
-                    const errData = JSON.parse(errorOutput);
-                    return res.status(500).json(errData);
-                } catch (e) {
-                    return res.status(500).json({ 
-                        error: "Error retraining model",
-                        details: errorOutput
-                    });
-                }
-            }
-            
-            try {
-                const result = JSON.parse(output);
-                res.status(200).json(result);
-            } catch (e) {
-                res.status(200).json({
-                    status: "success",
-                    message: "Model retrained (output not parseable)",
-                    raw_output: output
-                });
-            }
-        });
-
-    } catch (error) {
-        console.error("Error in model retraining:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
-
+// Update the create event route to schedule expiration
 router.post("/create", authMiddleware, async (req, res) => {
   try {
     const creatorId = req.user._id;
@@ -226,9 +59,9 @@ router.post("/create", authMiddleware, async (req, res) => {
       eventPosts,  
       eventRating: user.rating || 0,
       isOpen: isOpen !== undefined ? isOpen : true,
-      isActive: true, 
+      isActive: true, // Set as active by default
       location,
-      startDate: startDate, 
+      startDate: startDate, // Store as string from frontend
       participants: [],
       creator: {
         _id: user._id,
@@ -462,6 +295,12 @@ router.put("/update/:eventId", authMiddleware, async (req, res) => {
       await NotificationService.scheduleEventReminders(updatedEvent);
     }
 
+    // Send update notification to participants
+    await NotificationService.addNotificationJob('send-event-update', {
+      event: updatedEvent,
+      updateType: 'updated'
+    });
+    await onEventUpdated(existingEvent, updatedEvent);
 
     res.json(updatedEvent);
   } catch (error) {
