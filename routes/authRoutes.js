@@ -251,19 +251,18 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.post("/logout", async (req, res) => {
+router.post("/logout", authMiddleware, async (req, res) => {
   try {
-    const { userId } = req.body;
+    const userId = req.user.id;
 
-    if (userId) {
-      await User.findByIdAndUpdate(userId, { 
-        $unset: { fcmToken: 1 } 
-      });
-    }
+    await User.findByIdAndUpdate(userId, { 
+      $unset: { fcmToken: 1 } 
+    });
 
     res.json({ 
       success: true, 
-      message: "Logged out successfully" 
+      message: "Logged out successfully",
+      clearToken: true
     });
   } catch (error) {
     console.error("Logout error:", error);
@@ -273,5 +272,6 @@ router.post("/logout", async (req, res) => {
     });
   }
 });
+
 
 module.exports = router;
