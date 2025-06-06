@@ -462,13 +462,6 @@ router.put("/update/:eventId", authMiddleware, async (req, res) => {
       await NotificationService.scheduleEventReminders(updatedEvent);
     }
 
-    // Send update notification to participants
-    await NotificationService.addNotificationJob('send-event-update', {
-      event: updatedEvent,
-      updateType: 'updated'
-    });
-    await onEventUpdated(existingEvent, updatedEvent);
-
     res.json(updatedEvent);
   } catch (error) {
     console.error("Error updating event:", error);

@@ -95,6 +95,74 @@ router.get("/:clubId", async (req, res) => {
   }
 });
 
+router.put("/update/:clubId", authMiddleware, async (req, res) => {
+  try {
+    const { clubId } = req.params;
+    const userId = req.user._id;
+    const updates = req.body;
+
+    const existingClub = await Club.findById(clubId);
+    if (!existingClub) {
+      return res.status(404).json({ message: "Club not found" });
+    }
+
+    if (!existingClub.creator || !existingClub.creator._id) {
+      return res.status(500).json({ message: "Club creator information missing" });
+    }
+
+    if (existingClub.creator._id.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Only the club creator can update this club" });
+    }
+
+    // Remove fields that shouldn't be updated directly
+    delete updates._id;
+    delete updates.__v;
+    delete updates.creator;
+    delete updates.participants;
+    delete updates.clubRating;
+    delete updates.ratingCount;
+    delete updates.createdAt;
+    delete updates.updatedAt;
+
+    // Validate required fields if they exist in updates
+    if (updates.hasOwnProperty('name') && !updates.name) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+
+    if (updates.hasOwnProperty('description') && !updates.description) {
+      return res.status(400).json({ message: "Description is required" });
+    }
+
+    if (updates.hasOwnProperty('category') && !updates.category) {
+      return res.status(400).json({ message: "Category is required" });
+    }
+
+    // Set default value for isOpen if provided but undefined
+    if (updates.hasOwnProperty('isOpen') && updates.isOpen === undefined) {
+      updates.isOpen = true;
+    }
+
+    // Update the club with all provided fields
+    const updatedClub = await Club.findByIdAndUpdate(
+      clubId,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedClub) {
+      return res.status(404).json({ message: "Club not found" });
+    }
+
+    res.json(updatedClub);
+  } catch (error) {
+    console.error("Error updating club:", error);
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ message: error.message });
+    }
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 router.post("/join/:clubId", authMiddleware, async (req, res) => {
   try {
     const { clubId } = req.params;
