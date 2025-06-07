@@ -12,7 +12,7 @@ const PostSchema = new mongoose.Schema({
     }
   }],
   text: { type: String, required: true, trim: true, maxlength: 2000},
-  date: { type: Date, default: Date.now },
+  date: { type: String},
   authorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   eventId: { type: mongoose.Schema.Types.ObjectId, ref: "Event", required: true },
   likeCount: { type: Number, default: 0 },
