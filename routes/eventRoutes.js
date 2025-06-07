@@ -595,29 +595,60 @@ router.post("/rate/:eventId", authMiddleware, async (req, res) => {
       });
     }
 
-    const currentRating = event.eventRating || 0;
-    const currentCount = event.ratingCount || 0;
-    
-    const totalRating = (currentRating * currentCount) + rating;
-    const newCount = currentCount + 1;
-    const newAverageRating = totalRating / newCount;
+    if (!event.participantsRating || !Array.isArray(event.participantsRating)) {
+      event.participantsRating = [];
+    } else {
+      event.participantsRating = event.participantsRating.filter(
+        ratingObj => ratingObj && ratingObj.userId && ratingObj.rating !== undefined
+      );
+    }
 
-    event.eventRating = Math.round(newAverageRating * 100) / 100;
-    event.ratingCount = newCount;
+    const currentEventRating = event.eventRating || 0;
+    const currentRatingCount = event.participantsRating.length;
+
+    const existingRatingIndex = event.participantsRating.findIndex(
+      ratingObj => ratingObj.userId.toString() === userId.toString()
+    );
+    
+    const oldUserRating = existingRatingIndex !== -1 ? event.participantsRating[existingRatingIndex].rating : null;
+
+    let newEventRating;
+    let newRatingCount;
+    let isUpdate = false;
+
+    if (oldUserRating !== null) {
+      isUpdate = true;
+      
+      const currentTotal = currentEventRating * currentRatingCount;
+      const newTotal = currentTotal - oldUserRating + rating;
+      newEventRating = currentRatingCount > 0 ? newTotal / currentRatingCount : rating;
+      newRatingCount = currentRatingCount; 
+      
+      if (currentRatingCount === 1 && event.participantsRating.length === 1) {
+        newEventRating = rating;
+      }
+      
+      // Update the existing rating
+      event.participantsRating[existingRatingIndex].rating = rating;
+      
+    } else {
+      const currentTotal = currentEventRating * currentRatingCount;
+      const newTotal = currentTotal + rating;
+      newRatingCount = currentRatingCount + 1;
+      newEventRating = newTotal / newRatingCount;
+      
+      event.participantsRating.push({
+        userId: new mongoose.Types.ObjectId(userId),
+        rating: Number(rating)
+      });
+    }
+    
+    event.eventRating = Math.round(newEventRating * 100) / 100;
+    event.ratingCount = newRatingCount;
 
     const updatedEvent = await event.save();
 
-    res.status(200).json({
-      success: true,
-      message: "Event rated successfully",
-      data: {
-        eventId: eventId,
-        eventName: event.name,
-        userRating: rating,
-        newAverageRating: updatedEvent.eventRating,
-        totalRatings: updatedEvent.ratingCount
-      }
-    });
+    res.status(200).json();
 
   } catch (error) {
     console.error("Error rating event:", error);

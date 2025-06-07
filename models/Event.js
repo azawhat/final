@@ -14,6 +14,11 @@ const EventSchema = new mongoose.Schema({
   location: { type: String },
   eventRating: { type: Number, default: 0 },
   ratingCount: { type: Number, default: 0 },
+  // Add the missing participantsRating field
+  participantsRating: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    rating: { type: Number, required: true, min: 1, max: 5 }
+  }],
   creator: {
     _id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     name: { type: String, required: true },
@@ -32,18 +37,26 @@ EventSchema.post("save", async function (doc) {
   try {
     const events = await mongoose.model("Event").find({ "creator._id": doc.creator._id });
 
-    const ratedEvents = events.filter(event => (event.ratingCount || 0) > 0);
+    // Use participantsRating length instead of ratingCount for more accuracy
+    const ratedEvents = events.filter(event => 
+      event.participantsRating && 
+      Array.isArray(event.participantsRating) && 
+      event.participantsRating.length > 0
+    );
 
     const Club = mongoose.model("Club");
     const clubs = await Club.find({ "creator._id": doc.creator._id });
-    const ratedClubs = clubs.filter(club => (club.ratingCount || 0) > 0);
+    
+    // Assuming clubs have similar structure, adjust accordingly
+    const ratedClubs = clubs.filter(club => 
+      (club.participantsRating && Array.isArray(club.participantsRating) && club.participantsRating.length > 0) ||
+      (club.ratingCount && club.ratingCount > 0)
+    );
 
     let finalUserRating = 0;
     let totalRatedItems = 0;
 
-
     if (ratedEvents.length > 0 && ratedClubs.length > 0) {
-
       const eventsTotal = ratedEvents.reduce((sum, event) => sum + (Number(event.eventRating) || 0), 0);
       const clubsTotal = ratedClubs.reduce((sum, club) => sum + (Number(club.clubRating) || 0), 0);
       
@@ -51,17 +64,14 @@ EventSchema.post("save", async function (doc) {
       finalUserRating = (eventsTotal + clubsTotal) / totalRatedItems;
       
     } else if (ratedEvents.length > 0) {
-
       const eventsTotal = ratedEvents.reduce((sum, event) => sum + (Number(event.eventRating) || 0), 0);
       finalUserRating = eventsTotal / ratedEvents.length;
       totalRatedItems = ratedEvents.length;
 
     } else if (ratedClubs.length > 0) {
-
       const clubsTotal = ratedClubs.reduce((sum, club) => sum + (Number(club.clubRating) || 0), 0);
       finalUserRating = clubsTotal / ratedClubs.length;
       totalRatedItems = ratedClubs.length;
-
     }
 
     if (totalRatedItems > 0) {
@@ -72,6 +82,7 @@ EventSchema.post("save", async function (doc) {
         { rating: finalRoundedRating },
         { new: true }
       );
+      
     } else {
       console.log(`No rated events or clubs found, setting user rating to 0`);
       await User.findByIdAndUpdate(doc.creator._id, { rating: 0 });
