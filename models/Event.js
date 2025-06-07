@@ -30,7 +30,9 @@ const EventSchema = new mongoose.Schema({
     _id: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
   }],
   maxParticipants: { type: Number },
-  startDate: { type: String, required: true } 
+  startDate: { type: String, required: true },
+  // Add posts field to store references to posts
+  posts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }]
 });
 
 EventSchema.post("save", async function (doc) {

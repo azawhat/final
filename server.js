@@ -30,6 +30,7 @@ const shareRoutes = require("./routes/shareRoutes");
 const applyRoutes = require("./routes/applyRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const EventExpirationService = require('./services/eventExpirationService');
+const postRoutes = require("./routes/postRoutes");
 
 // Use Routes
 app.use("/users", userRoutes);
@@ -41,6 +42,7 @@ app.use("/profile", profileRoutes);
 app.use("/share", shareRoutes);
 app.use("/applications", applyRoutes);
 app.use("/notifications", notificationRoutes);
+app.use("/posts", postRoutes);
 EventExpirationService.initializeExistingEvents().catch(console.error);
 
 // Start Server
