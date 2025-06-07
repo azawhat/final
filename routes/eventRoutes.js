@@ -8,6 +8,7 @@ const router = express.Router();
 const EventExpirationService = require('../services/eventExpirationService');
 const { spawn } = require('child_process');
 const path = require('path');
+
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;

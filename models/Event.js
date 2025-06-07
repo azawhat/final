@@ -25,7 +25,6 @@ const EventSchema = new mongoose.Schema({
     _id: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
   }],
   maxParticipants: { type: Number },
-  location: { type: String },
   startDate: { type: String, required: true } 
 });
 

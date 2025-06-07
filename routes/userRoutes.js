@@ -8,7 +8,6 @@ const { sendQRCodeEmail } = require("../config/emailConfig");
 const QRCode = require('qrcode');
 const router = express.Router();
 
-
 // Get all users
 router.get("/", async (req, res) => {
   try {
@@ -16,6 +15,51 @@ router.get("/", async (req, res) => {
     res.status(200).json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/eventsCreated", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: "Invalid userId." });
+    }
+
+    // Find events where the user is the creator
+    const events = await Event.find({ "creator._id": userId });
+
+    if (!events.length) {
+      return res.status(404).json({ message: "No events found for this user." });
+    }
+
+    res.status(200).json(events);
+  } catch (error) {
+    console.error("Error fetching events for user:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
+});
+
+// Get events joined by the authenticated user
+router.get("/joinedEvents", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    console.log("User ID for joinedEvents:", userId);
+    
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: "Invalid userId." });
+    }
+
+    const events = await Event.find({ participants: userId });
+
+    if (!events.length) {
+      return res.status(404).json({ message: "No joined events found for this user." });
+    }
+
+    res.status(200).json(events);
+  } catch (error) {
+    console.error("Error fetching joined events:", error);
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 
@@ -69,28 +113,6 @@ router.delete("/delete-user/:userId", async (req, res) => {
   }
 });
 
-router.get("/eventsCreated", authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ error: "Invalid userId." });
-    }
-
-    // Find events where the user is the creator
-    const events = await Event.find({ "creator._id": userId });
-
-    if (!events.length) {
-      return res.status(404).json({ message: "No events found for this user." });
-    }
-
-    res.status(200).json(events);
-  } catch (error) {
-    console.error("Error fetching events for user:", error);
-    res.status(500).json({ error: "Internal server error." });
-  }
-});
-
 // Join an event
 router.post("/join/:eventId", authMiddleware, async (req, res) => {
   try {
@@ -134,8 +156,6 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
       name: user.name,
     });
 
-    
-
     let qrCodeSent = false;
     let emailError = null;
 
@@ -176,6 +196,7 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
       isOpen: event.isOpen
     };
     await event.save();
+    
     // Include email error in response for debugging (optional)
     if (emailError && event.isOpen) {
       response.emailWarning = `QR code email could not be sent: ${emailError}`;
@@ -198,7 +219,7 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
   }
 });
 
-
+// Check attendance for an event
 router.post("/check-attendance", authMiddleware, async (req, res) => {
   try {
     const { eventId, userId } = req.body;
@@ -259,7 +280,6 @@ router.post("/check-attendance", authMiddleware, async (req, res) => {
   }
 });
 
-
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -277,28 +297,6 @@ router.get("/:id", async (req, res) => {
     res.status(200).json(user);
   } catch (error) {
     console.error("Error fetching user by ID:", error);
-    res.status(500).json({ error: "Internal server error." });
-  }
-});
-
-router.get("/joinedEvents", authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ error: "Invalid userId." });
-    }
-
-    // Find events where the user is a participant
-    const events = await Event.find({ "participants._id": userId });
-
-    if (!events.length) {
-      return res.status(404).json({ message: "No joined events found for this user." });
-    }
-
-    res.status(200).json(events);
-  } catch (error) {
-    console.error("Error fetching joined events:", error);
     res.status(500).json({ error: "Internal server error." });
   }
 });
