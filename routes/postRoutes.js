@@ -67,7 +67,7 @@ router.post("/create/:eventId", authMiddleware, async (req, res) => {
       { new: true }
     );
 
-    res.status(201).json();
+    res.status(200).json();
   } catch (error) {
     console.error("Error creating post:", error);
     if (error.name === "ValidationError") {
