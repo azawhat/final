@@ -582,8 +582,13 @@ router.post("/rate/:eventId", authMiddleware, async (req, res) => {
         message: "You cannot rate your own event" 
       });
     }
+    
+    if (event.isActive !== false) {
+      return res.status(400).json({
+        message: "You can only rate events that have ended"
+      });
+    }
 
-    // Check if user has participated in the event (optional validation)
     if (!event.participants.includes(userId)) {
       return res.status(400).json({ 
         message: "You must be a participant to rate this event" 

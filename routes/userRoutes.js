@@ -156,6 +156,12 @@ router.post("/join/:eventId", authMiddleware, async (req, res) => {
       name: user.name,
     });
 
+    await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { visitedEvents: eventId } },
+      { new: true }
+    );
+    
     let qrCodeSent = false;
     let emailError = null;
 
