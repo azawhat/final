@@ -3,14 +3,15 @@ const mongoose = require("mongoose");
 const PostSchema = new mongoose.Schema({
   header: { type: String, required: true, trim: true, maxlength: 200
   },
-  media: [{ type: String,
+    media: {
+    type: [String],
     validate: {
-      validator: function(v) {
+        validator: function(v) {
         return v.length <= 3;
-      },
-      message: 'Maximum 3 media items allowed'
+        },
+        message: 'Maximum 3 media items allowed'
     }
-  }],
+    },
   text: { type: String, required: true, trim: true, maxlength: 2000},
   date: { type: String},
   authorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },

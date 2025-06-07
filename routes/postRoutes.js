@@ -67,12 +67,7 @@ router.post("/create/:eventId", authMiddleware, async (req, res) => {
       { new: true }
     );
 
-    // Populate author information for response
-    const populatedPost = await Post.findById(post._id)
-      .populate('authorId', 'name surname username')
-      .populate('eventId', 'name');
-
-    res.status(201).json(populatedPost);
+    res.status(201).json();
   } catch (error) {
     console.error("Error creating post:", error);
     if (error.name === "ValidationError") {
