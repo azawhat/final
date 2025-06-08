@@ -4,6 +4,7 @@ from recommendation_system import EventRecommender
 from dotenv import load_dotenv
 import os
 def main():
+    load_dotenv()
     try:
         if len(sys.argv) < 2:
             print(json.dumps({"error": "Usage: python recommendation_api.py <user_id> or --retrain"}))

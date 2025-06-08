@@ -239,6 +239,7 @@ router.post("/login", async (req, res) => {
         email: user.email,
         username: user.username,
         profilePicture: user.profilePicture,
+        rating: user.rating,
         isAdmin: user.isAdmin,
         visitedEvents: user.visitedEvents, 
         joinedClubs: user.joinedClubs,
