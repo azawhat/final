@@ -89,28 +89,24 @@ router.post("/like/:postId", authMiddleware, async (req, res) => {
     }
 
     const existingLike = post.likes.find(
-      like => like.userId.toString() === userId.toString()
+      likeUserId => likeUserId.toString() === userId.toString()
     );
 
     if (existingLike) {
       return res.status(400).json({ error: "You have already liked this post" });
     }
 
-    post.likes.push({ userId: new mongoose.Types.ObjectId(userId) });
+    post.likes.push(new mongoose.Types.ObjectId(userId));
     await post.save();
 
-    res.status(200).json({ 
-      message: "Post liked successfully",
-      likeCount: post.likeCount,
-      isLiked: true
-    });
+    res.status(200).json(post.likes);
   } catch (error) {
     console.error("Error liking post:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-
+// Unlike a post
 router.post("/unlike/:postId", authMiddleware, async (req, res) => {
   try {
     const { postId } = req.params;
@@ -126,21 +122,18 @@ router.post("/unlike/:postId", authMiddleware, async (req, res) => {
     }
 
     const likeIndex = post.likes.findIndex(
-      like => like.userId.toString() === userId.toString()
+      likeUserId => likeUserId.toString() === userId.toString()
     );
 
     if (likeIndex === -1) {
       return res.status(400).json({ error: "You have not liked this post" });
     }
 
+
     post.likes.splice(likeIndex, 1);
     await post.save();
 
-    res.status(200).json({ 
-      message: "Post unliked successfully",
-      likeCount: post.likeCount,
-      isLiked: false
-    });
+    res.status(200).json(post.likes);
   } catch (error) {
     console.error("Error unliking post:", error);
     res.status(500).json({ error: "Internal server error" });

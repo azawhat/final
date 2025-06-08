@@ -17,7 +17,7 @@ const PostSchema = new mongoose.Schema({
   authorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   eventId: { type: mongoose.Schema.Types.ObjectId, ref: "Event", required: true },
   likeCount: { type: Number, default: 0 },
-  likes: [{userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }}]
+  likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }]
 });
 
 PostSchema.index({ eventId: 1, date: -1 });
