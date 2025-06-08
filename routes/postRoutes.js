@@ -209,8 +209,6 @@ router.get("/event/:eventId", async (req, res) => {
 
     const posts = await Post.find({ eventId })
       .populate('authorId', 'name surname username profilePicture')
-      .populate('eventId', 'name')
-
     res.status(200).json(posts);
   } catch (error) {
     console.error("Error fetching posts for event:", error);
