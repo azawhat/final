@@ -26,7 +26,6 @@ const clubRoutes = require("./routes/clubRoutes");
 const authRoutes = require("./routes/authRoutes")
 const searchRoutes = require('./routes/searchRoutes');
 const profileRoutes = require("./routes/profileRoutes");
-const shareRoutes = require("./routes/shareRoutes");
 const applyRoutes = require("./routes/applyRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const EventExpirationService = require('./services/eventExpirationService');
@@ -39,7 +38,6 @@ app.use("/clubs", clubRoutes);
 app.use("/auth", authRoutes);
 app.use('/search', searchRoutes);
 app.use("/profile", profileRoutes);
-app.use("/share", shareRoutes);
 app.use("/applications", applyRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/posts", postRoutes);
