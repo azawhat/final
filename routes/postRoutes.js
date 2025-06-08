@@ -209,7 +209,7 @@ router.get("/event/:eventId", async (req, res) => {
     }
 
     const posts = await Post.find({ eventId })
-      .populate('authorId', 'name surname username profilePicture')
+      .populate('authorId', 'name surname username')
 
     res.status(200).json({posts});
   } catch (error) {
