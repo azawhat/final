@@ -425,6 +425,9 @@ router.put("/update/:eventId", authMiddleware, async (req, res) => {
     if (updates.hasOwnProperty('startDate') && !updates.startDate) {
       return res.status(400).json({ message: "Start date is required" });
     }
+    if (updates.hasOwnProperty('eventPicture') && !updates.eventPicture) {
+      return res.status(400).json({ message: "Start date is required" });
+    }
 
     // Parse and validate dates if they exist in updates
     if (updates.startDate) {
@@ -460,7 +463,7 @@ router.put("/update/:eventId", authMiddleware, async (req, res) => {
     }
 
 
-    res.json(updatedEvent);
+    res.status(200).json();
   } catch (error) {
     console.error("Error updating event:", error);
     

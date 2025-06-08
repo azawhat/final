@@ -267,7 +267,7 @@ router.put("/update/:clubId", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Club not found" });
     }
 
-    res.json(updatedClub);
+    res.status(200).json();
   } catch (error) {
     console.error("Error updating club:", error);
     if (error.name === "ValidationError") {
