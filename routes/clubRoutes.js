@@ -4,6 +4,120 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const router = express.Router();
 const authMiddleware = require("../middleware/authMiddleware")
+const { spawn } = require('child_process');
+const path = require('path');
+
+router.get("/", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: "Invalid userId" });
+    }
+
+    const pythonProcess = spawn('python', [
+      path.join(__dirname, '../recommendation_api.py'),
+      userId
+    ]);
+
+    let output = '';
+    let errorOutput = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+      console.error(`Python stderr: ${data}`);
+    });
+
+    pythonProcess.on('close', async (code) => {
+      if (code !== 0) {
+        console.error(`Python script failed with code ${code}`);
+        try {
+          const fallbackEvents = await Club.find();
+          return res.status(200).json(fallbackEvents);
+        } catch (fallbackError) {
+          console.error("Fallback query failed:", fallbackError);
+          return res.status(500).json({ 
+            error: "Recommendation service error",
+            details: errorOutput
+          });
+        }
+      }
+      
+      try {
+        const result = JSON.parse(output);
+        
+        if (result.error) {
+          const fallbackEvents = await Club.find({ isActive: true });
+          return res.status(200).json(fallbackEvents);
+        }
+        
+        const recommendedEventIds = result.recommendations.map(rec => rec.club_id);
+        
+        if (recommendedEventIds.length === 0) {
+          const fallbackEvents = await Club.find();
+          return res.status(200).json(fallbackEvents);
+        }
+        
+        const recommendedEvents = await Club.find({
+          _id: { $in: recommendedEventIds },
+          isActive: true
+        });
+        
+        const scoreMap = {};
+        result.recommendations.forEach(rec => {
+          scoreMap[rec.club_id] = {
+            contentScore: rec.content_score || 0,
+            collabScore: rec.collab_score || 0,
+            hybridScore: rec.hybrid_score || rec.score || 0
+          };
+        });
+        
+        const eventsWithScores = recommendedEvents
+          .map(club => {
+            const scores = scoreMap[club._id.toString()] || {
+              contentScore: 0,
+              collabScore: 0,
+              hybridScore: 0
+            };
+            return {
+              ...club.toObject(),
+              hybridScore: scores.hybridScore
+            };
+          })
+          .sort((a, b) => b.hybridScore - a.hybridScore);
+        
+        res.status(200).json(eventsWithScores);
+        
+      } catch (e) {
+        console.error("Error parsing recommendation output:", e);
+        try {
+          const fallbackEvents = await Club.find({ isActive: true });
+          res.status(200).json(fallbackEvents);
+        } catch (fallbackError) {
+          console.error("Fallback query failed:", fallbackError);
+          res.status(500).json({ 
+            error: "Error processing recommendations",
+            details: e.message
+          });
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Recommendation endpoint error:", error);
+    try {
+      const fallbackEvents = await Club.find({ isActive: true });
+      res.status(200).json(fallbackEvents);
+    } catch (fallbackError) {
+      console.error("Fallback query failed:", fallbackError);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+});
 
 router.post("/create", authMiddleware, async (req, res) => {
   try {
@@ -52,7 +166,7 @@ router.post("/create", authMiddleware, async (req, res) => {
 });
 
 // Get all clubs
-router.get("/", async (req, res) => {
+router.get("/all", async (req, res) => {
   try {
     const clubs = await Club.find();
     res.status(200).json(clubs);

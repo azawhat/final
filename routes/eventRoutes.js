@@ -195,9 +195,10 @@ router.post("/create", authMiddleware, async (req, res) => {
       category,
       eventTags,
       eventPicture,
-      eventPosts,
       isOpen,
       location,
+      locationCoordinates,
+      media,
       startDate
     } = req.body;
 
@@ -206,7 +207,6 @@ router.post("/create", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "Required fields missing" });
     }
     
-    // Parse and validate startDate - keep as string but validate it can be parsed
     const parsedStartDate = new Date(startDate);
     if (isNaN(parsedStartDate.getTime())) {
       return res.status(400).json({ message: "Invalid startDate format" });
@@ -222,13 +222,13 @@ router.post("/create", authMiddleware, async (req, res) => {
       category,
       eventTags,
       eventPicture,
-      eventPosts,  
-      eventRating: user.rating || 0,
+      eventRating: user.rating || 5,
       isOpen: isOpen !== undefined ? isOpen : true,
       isActive: true, 
       location,
+      locationCoordinates,
       startDate: startDate, 
-      participants: [],
+      media,
       creator: {
         _id: user._id,
         name: user.name,
@@ -240,10 +240,8 @@ router.post("/create", authMiddleware, async (req, res) => {
     await event.save();
     await onEventCreated(event);
     
-    // Schedule event reminder notifications
     await NotificationService.scheduleEventReminders(event);
     
-    // Schedule event expiration (24 hours after start)
     await EventExpirationService.scheduleEventExpiration(event);
 
     res.status(201).json(event);

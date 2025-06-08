@@ -7,13 +7,13 @@ const EventSchema = new mongoose.Schema({
   category: { type: String }, 
   eventTags: { type: String },
   eventPicture: { type: String },
-  eventPosts : { type: String },
   isOpen: { type: Boolean, default: true },
   isActive: { type: Boolean, default: true }, 
-  chatLink: { type: String },
   location: { type: String },
+  locationCoordinates: { type: String },
   eventRating: { type: Number, default: 0 },
   ratingCount: { type: Number, default: 0 },
+  media: [{ type : String }],
   // Add the missing participantsRating field
   participantsRating: [{
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -31,7 +31,6 @@ const EventSchema = new mongoose.Schema({
   }],
   maxParticipants: { type: Number },
   startDate: { type: String, required: true },
-  // Add posts field to store references to posts
   posts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }]
 });
 
