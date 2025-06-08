@@ -10,7 +10,7 @@ const router = express.Router();
 router.post("/create/:eventId", authMiddleware, async (req, res) => {
   try {
     const { eventId } = req.params;
-    const { header, media, text } = req.body;
+    const { header, media, text, date } = req.body;
     const authorId = req.user.id;
 
     if (!header || !text || !eventId) {
@@ -26,24 +26,17 @@ router.post("/create/:eventId", authMiddleware, async (req, res) => {
     if (!event) {
       return res.status(404).json({ error: "Event not found" });
     }
-
-    if (!event.isActive) {
+        if (!event.isActive) {
       return res.status(400).json({ 
         error: "Cannot post on inactive events" 
       });
     }
 
-    const isParticipant = event.creator._id.toString() === authorId.toString();
-    
+    // Check if user is a participant or creator of the event
+    const isParticipant = event.participants.includes(authorId) || event.creator._id.toString() === authorId.toString();
     if (!isParticipant) {
       return res.status(403).json({ 
         error: "You must be a creator to post on this event" 
-      });
-    }
-
-    if (media && (!Array.isArray(media) || media.length > 3)) {
-      return res.status(400).json({ 
-        error: "Media must be an array with maximum 3 items" 
       });
     }
 
@@ -55,7 +48,8 @@ router.post("/create/:eventId", authMiddleware, async (req, res) => {
       authorId,
       eventId,
       likes: [],
-      likeCount: 0
+      likeCount: 0,
+      date
     });
 
     await post.save();
@@ -196,7 +190,6 @@ router.delete("/delete/:postId", authMiddleware, async (req, res) => {
 router.get("/event/:eventId", async (req, res) => {
   try {
     const { eventId } = req.params;
-    const { page = 1, limit = 10, sortBy = 'date', sortOrder = 'desc' } = req.query;
 
     if (!mongoose.Types.ObjectId.isValid(eventId)) {
       return res.status(400).json({ error: "Invalid eventId" });
