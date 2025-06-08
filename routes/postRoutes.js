@@ -202,6 +202,7 @@ router.get("/event/:eventId", async (req, res) => {
       return res.status(400).json({ error: "Invalid eventId" });
     }
 
+
     const event = await Event.findById(eventId);
     if (!event) {
       return res.status(404).json({ error: "Event not found" });
@@ -210,7 +211,7 @@ router.get("/event/:eventId", async (req, res) => {
     const posts = await Post.find({ eventId })
       .populate('authorId', 'name surname username profilePicture')
 
-    res.status(200).json(posts);
+    res.status(200).json({posts});
   } catch (error) {
     console.error("Error fetching posts for event:", error);
     res.status(500).json({ error: "Internal server error" });

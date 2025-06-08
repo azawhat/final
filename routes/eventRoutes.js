@@ -87,8 +87,6 @@ router.get("/", authMiddleware, async (req, res) => {
             };
             return {
               ...event.toObject(),
-              contentScore: scores.contentScore,
-              collabScore: scores.collabScore,
               hybridScore: scores.hybridScore
             };
           })
