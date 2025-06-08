@@ -388,15 +388,13 @@ router.put("/update/:eventId", authMiddleware, async (req, res) => {
   try {
     const { eventId } = req.params;
     const userId = req.user.id;
-    const updates = req.body;
-
-    // Check if event exists and get current event data
+    const frontendUpdates = req.body;
+    
     const existingEvent = await Event.findById(eventId);
     if (!existingEvent) {
       return res.status(404).json({ message: "Event not found" });
     }
 
-    // Check if user is the creator of the event
     if (!existingEvent.creator || !existingEvent.creator._id) {
       return res.status(500).json({ message: "Event creator information missing" });
     }
@@ -405,73 +403,88 @@ router.put("/update/:eventId", authMiddleware, async (req, res) => {
       return res.status(403).json({ message: "Only the event creator can update this event" });
     }
 
-    // Remove fields that shouldn't be updated directly
+    const fieldMapping = {
+      'newTitle': 'name',
+      'newDescription': 'description', 
+      'newLocation': 'location',
+      'newPicture': 'eventPicture',
+      'newCoordinates': 'locationCoordinates'
+    };
+
+    // Convert frontend field names to database field names
+    const updates = {};
+    const updatedFields = []; // Track which fields were updated for notifications
+    
+    for (const [frontendField, value] of Object.entries(frontendUpdates)) {
+      const dbField = fieldMapping[frontendField] || frontendField;
+      
+      if (value !== null && value !== undefined && value !== '') {
+        updates[dbField] = value;
+        updatedFields.push(dbField);
+
+      } else if (typeof value === 'boolean') {
+        updates[dbField] = value;
+        updatedFields.push(dbField);
+
+      }
+    }
+
     delete updates._id;
     delete updates.__v;
     delete updates.creator;
     delete updates.createdAt;
     delete updates.updatedAt;
 
-    // Validate required fields if they exist in updates
     if (updates.hasOwnProperty('name') && !updates.name) {
       return res.status(400).json({ message: "Name is required" });
     }
+    
     if (updates.hasOwnProperty('description') && !updates.description) {
       return res.status(400).json({ message: "Description is required" });
     }
+    
     if (updates.hasOwnProperty('location') && !updates.location) {
       return res.status(400).json({ message: "Location is required" });
     }
-    if (updates.hasOwnProperty('startDate') && !updates.startDate) {
-      return res.status(400).json({ message: "Start date is required" });
-    }
-    if (updates.hasOwnProperty('eventPicture') && !updates.eventPicture) {
-      return res.status(400).json({ message: "Start date is required" });
-    }
 
-    // Parse and validate dates if they exist in updates
-    if (updates.startDate) {
-      const parsedStartDate = new Date(updates.startDate);
-      if (isNaN(parsedStartDate.getTime())) {
-        return res.status(400).json({ 
-          message: "Invalid startDate format", 
-          receivedValue: updates.startDate 
-        });
-      }
-      updates.startDate = parsedStartDate;
-    }
-    // Set default value for isOpen if provided but undefined
-    if (updates.hasOwnProperty('isOpen') && updates.isOpen === undefined) {
-      updates.isOpen = true;
-    }
 
-    // Update the event with all provided fields
     const updatedEvent = await Event.findByIdAndUpdate(
       eventId,
       { $set: updates },
       { new: true, runValidators: true }
-    );
+    ).populate('creator', 'name surname')
+     .populate('participants', 'name surname');
 
     if (!updatedEvent) {
-      return res.status(404).json({ message: "Event not found" });
+      return res.status(404).json({ message: "Event not found after update" });
     }
 
-    // If startDate was updated, reschedule reminders
-    if (updates.startDate) {
-      await NotificationService.cancelEventReminders(eventId);
-      await NotificationService.scheduleEventReminders(updatedEvent);
-    }
+    console.log('Event updated successfully:', updatedEvent.name);
 
+    res.status(200);
 
-    res.status(200).json();
   } catch (error) {
-    console.error("Error updating event:", error);
+    console.error(" Error updating event:", error);
+    console.error("Stack trace:", error.stack);
     
     if (error.name === "ValidationError") {
-      return res.status(400).json({ message: error.message });
+      return res.status(400).json({ 
+        message: "Validation error", 
+        details: error.message 
+      });
     }
     
-    res.status(500).json({ message: "Server error" });
+    if (error.name === "CastError") {
+      return res.status(400).json({ 
+        message: "Invalid data format", 
+        details: error.message 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: "Server error",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

@@ -1,10 +1,338 @@
-// Enhanced NotificationService with comprehensive debugging
+// Enhanced NotificationService with comprehensive debugging and data parsing
 const { sendNotificationToDevice, sendNotificationToMultipleDevices } = require('../config/firebaseConfig');
 const { eventReminderQueue } = require('../config/queueConfig');
 const User = require('../models/User');
 const Event = require('../models/Event');
 
 class NotificationService {
+  /**
+   * Parse notification data based on type
+   * @param {Object} notificationData - Raw notification data from FCM
+   * @returns {Object} Parsed notification object
+   */
+  static parseNotificationData(notificationData) {
+    try {
+      console.log(`📱 Parsing notification data:`, notificationData);
+      
+      const { data, notification } = notificationData;
+      
+      if (!data || !data.type) {
+        console.log(`⚠️ No data or type found in notification`);
+        return {
+          type: 'unknown',
+          title: notification?.title || 'Notification',
+          body: notification?.body || '',
+          parsedData: {}
+        };
+      }
+
+      const baseData = {
+        type: data.type,
+        title: notification?.title || 'Notification',
+        body: notification?.body || '',
+        timestamp: data.timestamp ? parseInt(data.timestamp) : Date.now(),
+        rawData: data
+      };
+
+      console.log(`🔍 Notification type: ${data.type}`);
+
+      switch (data.type) {
+        case 'event_reminder':
+          return this.parseEventReminderData(baseData, data);
+        
+        case 'event_join':
+          return this.parseEventJoinData(baseData, data);
+        
+        case 'event_cancelled':
+          return this.parseEventCancelledData(baseData, data);
+        
+        case 'event_updated':
+          return this.parseEventUpdatedData(baseData, data);
+        
+        case 'test':
+          return this.parseTestNotificationData(baseData, data);
+        
+        default:
+          console.log(`⚠️ Unknown notification type: ${data.type}`);
+          return {
+            ...baseData,
+            parsedData: data
+          };
+      }
+    } catch (error) {
+      console.error('❌ Error parsing notification data:', error);
+      return {
+        type: 'error',
+        title: 'Notification Error',
+        body: 'Failed to parse notification data',
+        error: error.message,
+        parsedData: {}
+      };
+    }
+  }
+
+  /**
+   * Parse event reminder notification data
+   */
+  static parseEventReminderData(baseData, data) {
+    console.log(`⏰ Parsing event reminder data`);
+    
+    return {
+      ...baseData,
+      parsedData: {
+        eventId: data.eventId,
+        eventName: data.eventName,
+        eventLocation: data.eventLocation,
+        reminderTime: data.reminderTime,
+        isReminder: true,
+        actionType: 'view_event',
+        // Parse reminder time for display
+        reminderDisplay: this.formatReminderTime(data.reminderTime),
+        // Calculate event start time if available
+        eventStartTime: data.eventStartDate ? new Date(data.eventStartDate) : null
+      }
+    };
+  }
+
+  /**
+   * Parse event join notification data
+   */
+  static parseEventJoinData(baseData, data) {
+    console.log(`👥 Parsing event join data`);
+    
+    return {
+      ...baseData,
+      parsedData: {
+        eventId: data.eventId,
+        eventName: data.eventName,
+        participantName: data.participantName,
+        actionType: 'view_event_participants',
+        isJoinNotification: true
+      }
+    };
+  }
+
+  /**
+   * Parse event cancelled notification data
+   */
+  static parseEventCancelledData(baseData, data) {
+    console.log(`❌ Parsing event cancelled data`);
+    
+    return {
+      ...baseData,
+      parsedData: {
+        eventId: data.eventId,
+        eventName: data.eventName,
+        actionType: 'view_cancelled_event',
+        isCancellation: true,
+        // Mark for potential removal from user's event list
+        shouldRemoveFromList: true
+      }
+    };
+  }
+
+  /**
+   * Parse event updated notification data
+   */
+  static parseEventUpdatedData(baseData, data) {
+    console.log(`📝 Parsing event updated data`);
+    
+    return {
+      ...baseData,
+      parsedData: {
+        eventId: data.eventId,
+        eventName: data.eventName,
+        updatedFields: data.updatedFields ? JSON.parse(data.updatedFields) : [],
+        actionType: 'view_event',
+        isUpdate: true,
+        // Determine if this is a critical update (time/location change)
+        isCriticalUpdate: this.isCriticalEventUpdate(data.updatedFields)
+      }
+    };
+  }
+
+  /**
+   * Parse test notification data
+   */
+  static parseTestNotificationData(baseData, data) {
+    console.log(`🧪 Parsing test notification data`);
+    
+    return {
+      ...baseData,
+      parsedData: {
+        isTest: true,
+        actionType: 'none',
+        testTimestamp: data.timestamp
+      }
+    };
+  }
+
+  /**
+   * Format reminder time for display
+   */
+  static formatReminderTime(reminderTime) {
+    if (!reminderTime) return 'Unknown';
+    
+    if (reminderTime.includes('h')) {
+      const hours = reminderTime.replace('h', '');
+      return `${hours} hour${hours !== '1' ? 's' : ''} before`;
+    } else if (reminderTime.includes('m')) {
+      const minutes = reminderTime.replace('m', '');
+      return `${minutes} minute${minutes !== '1' ? 's' : ''} before`;
+    }
+    
+    return reminderTime;
+  }
+
+  /**
+   * Check if event update is critical (requires immediate attention)
+   */
+  static isCriticalEventUpdate(updatedFieldsJson) {
+    if (!updatedFieldsJson) return false;
+    
+    try {
+      const updatedFields = JSON.parse(updatedFieldsJson);
+      const criticalFields = ['startDate', 'endDate', 'location', 'name'];
+      
+      return criticalFields.some(field => updatedFields.includes(field));
+    } catch (error) {
+      console.error('Error parsing updated fields:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Handle notification tap/click action
+   * @param {Object} parsedNotification - Parsed notification data
+   * @param {Function} navigationCallback - Function to handle navigation
+   */
+  static handleNotificationAction(parsedNotification, navigationCallback) {
+    try {
+      console.log(`🔔 Handling notification action:`, parsedNotification);
+      
+      const { parsedData } = parsedNotification;
+      
+      switch (parsedData.actionType) {
+        case 'view_event':
+          if (parsedData.eventId) {
+            console.log(`📍 Navigating to event: ${parsedData.eventId}`);
+            navigationCallback('EventDetails', { eventId: parsedData.eventId });
+          }
+          break;
+          
+        case 'view_event_participants':
+          if (parsedData.eventId) {
+            console.log(`👥 Navigating to event participants: ${parsedData.eventId}`);
+            navigationCallback('EventParticipants', { eventId: parsedData.eventId });
+          }
+          break;
+          
+        case 'view_cancelled_event':
+          console.log(`❌ Showing cancelled event info`);
+          navigationCallback('CancelledEventInfo', { 
+            eventId: parsedData.eventId,
+            eventName: parsedData.eventName 
+          });
+          break;
+          
+        case 'none':
+          console.log(`🚫 No action required for this notification`);
+          break;
+          
+        default:
+          console.log(`⚠️ Unknown action type: ${parsedData.actionType}`);
+          break;
+      }
+    } catch (error) {
+      console.error('❌ Error handling notification action:', error);
+    }
+  }
+
+  /**
+   * Get notification display configuration
+   * @param {Object} parsedNotification - Parsed notification data
+   * @returns {Object} Display configuration
+   */
+  static getNotificationDisplayConfig(parsedNotification) {
+    const { type, parsedData } = parsedNotification;
+    
+    const config = {
+      showBadge: true,
+      playSound: true,
+      showAlert: true,
+      priority: 'normal'
+    };
+    
+    switch (type) {
+      case 'event_reminder':
+        // Higher priority for imminent reminders
+        if (parsedData.reminderTime === '15m') {
+          config.priority = 'high';
+          config.playSound = true;
+        } else if (parsedData.reminderTime === '5h') {
+          config.priority = 'normal';
+        } else {
+          config.priority = 'low';
+        }
+        break;
+        
+      case 'event_cancelled':
+        config.priority = 'high';
+        config.playSound = true;
+        break;
+        
+      case 'event_join':
+        config.priority = 'low';
+        config.playSound = false;
+        break;
+        
+      case 'event_updated':
+        config.priority = parsedData.isCriticalUpdate ? 'high' : 'normal';
+        config.playSound = parsedData.isCriticalUpdate;
+        break;
+        
+      case 'test':
+        config.priority = 'low';
+        break;
+        
+      default:
+        break;
+    }
+    
+    return config;
+  }
+
+  /**
+   * Create notification history entry
+   * @param {string} userId - User ID
+   * @param {Object} parsedNotification - Parsed notification data
+   */
+  static async createNotificationHistory(userId, parsedNotification) {
+    try {
+      const historyEntry = {
+        userId,
+        type: parsedNotification.type,
+        title: parsedNotification.title,
+        body: parsedNotification.body,
+        data: parsedNotification.parsedData,
+        timestamp: new Date(parsedNotification.timestamp),
+        read: false,
+        actionTaken: false
+      };
+      
+      console.log(`📝 Creating notification history entry:`, historyEntry);
+      
+      // Here you would save to your notification history collection
+      // const NotificationHistory = require('../models/NotificationHistory');
+      // await NotificationHistory.create(historyEntry);
+      
+      return historyEntry;
+    } catch (error) {
+      console.error('❌ Error creating notification history:', error);
+      throw error;
+    }
+  }
+
   /**
    * Schedule automatic event reminder notifications with enhanced debugging
    * @param {Object} event - Event object
@@ -184,13 +512,18 @@ class NotificationService {
         body: `${eventName} starts in ${timeText}${eventLocation ? ` at ${eventLocation}` : ''}`
       };
 
+      // Enhanced data with parsing-friendly structure
       const data = {
         type: 'event_reminder',
         eventId: eventId.toString(),
         eventName,
         eventLocation: eventLocation || '',
+        eventStartDate: event.startDate.toISOString(),
         reminderTime: reminderHours ? `${reminderHours}h` : `${reminderMinutes}m`,
-        timestamp: Date.now().toString()
+        reminderHours: reminderHours ? reminderHours.toString() : null,
+        reminderMinutes: reminderMinutes ? reminderMinutes.toString() : null,
+        timestamp: Date.now().toString(),
+        actionType: 'view_event'
       };
 
       console.log(`📧 Notification details:`);
@@ -289,117 +622,7 @@ class NotificationService {
     }
   }
 
-  /**
-   * Test notification system
-   */
-  static async testNotificationSystem(userId) {
-    try {
-      console.log(`\n🧪 Testing notification system for user ${userId}`);
-      
-      const user = await User.findById(userId);
-      if (!user) {
-        throw new Error('User not found');
-      }
 
-      console.log(`👤 User: ${user.name} ${user.surname}`);
-      console.log(`📱 FCM Token: ${user.fcmToken ? user.fcmToken.substring(0, 20) + '...' : 'NOT SET'}`);
-      console.log(`⚙️ Notification Settings:`, user.notificationSettings);
-
-      if (!user.fcmToken) {
-        throw new Error('User has no FCM token');
-      }
-
-      const notification = {
-        title: '🧪 Test Notification',
-        body: 'This is a test notification from the enhanced debugging system'
-      };
-
-      const data = {
-        type: 'test',
-        timestamp: Date.now().toString()
-      };
-
-      console.log(`📤 Sending test notification...`);
-      const result = await sendNotificationToDevice(user.fcmToken, notification, data);
-      
-      console.log(`📊 Test result:`, result);
-      
-      return result;
-    } catch (error) {
-      console.error('❌ Error testing notification system:', error);
-      throw error;
-    }
-  }
-
-  // Keep other existing methods unchanged
-  static async rescheduleEventReminders(event) {
-    try {
-      await this.cancelEventReminders(event._id);
-      await this.scheduleEventReminders(event);
-      console.log(`🔄 Rescheduled reminders for event ${event.name}`);
-    } catch (error) {
-      console.error('Error rescheduling event reminders:', error);
-      throw error;
-    }
-  }
-
-  static async sendEventJoinNotification(event, user) {
-    try {
-      const creator = await User.findById(event.creator._id);
-      if (creator && creator.fcmToken && creator.notificationSettings.generalNotifications) {
-        const notification = {
-          title: `New Participant - ${event.name}`,
-          body: `${user.name} ${user.surname} joined your event`
-        };
-
-        const data = {
-          type: 'event_join',
-          eventId: event._id.toString(),
-          eventName: event.name,
-          participantName: `${user.name} ${user.surname}`,
-          timestamp: Date.now().toString()
-        };
-
-        await sendNotificationToDevice(creator.fcmToken, notification, data);
-      }
-    } catch (error) {
-      console.error('Error sending event join notification:', error);
-    }
-  }
-
-  static async sendEventCancellationNotification(event) {
-    try {
-      const users = await User.find({
-        _id: { $in: event.participants },
-        fcmToken: { $exists: true, $ne: null },
-        'notificationSettings.eventReminders': true
-      });
-
-      if (users.length === 0) {
-        return { success: true, message: 'No users to notify' };
-      }
-
-      const tokens = users.map(user => user.fcmToken);
-      
-      const notification = {
-        title: `Event Cancelled - ${event.name}`,
-        body: `Unfortunately, ${event.name} has been cancelled. We apologize for any inconvenience.`
-      };
-
-      const data = {
-        type: 'event_cancelled',
-        eventId: event._id.toString(),
-        eventName: event.name,
-        timestamp: Date.now().toString()
-      };
-
-      await this.cancelEventReminders(event._id);
-      return await sendNotificationToMultipleDevices(tokens, notification, data);
-    } catch (error) {
-      console.error('Error sending event cancellation notification:', error);
-      return { success: false, error: error.message };
-    }
-  }
 }
 
 module.exports = NotificationService;
