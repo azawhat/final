@@ -133,59 +133,6 @@ router.get("/all", async (req, res) => {
 });
 
 // Переобучить модель (только для админов)
-router.post("/recommendations/retrain", authMiddleware, async (req, res) => {
-    try {
-        if (!req.user.isAdmin) {
-            return res.status(403).json({ error: "Only admins can retrain the model" });
-        }
-
-        const pythonProcess = spawn('python', [
-            path.join(__dirname, '../recommendation_api.py'),
-            '--retrain'
-        ]);
-
-        let output = '';
-        let errorOutput = '';
-
-        pythonProcess.stdout.on('data', (data) => {
-            output += data.toString();
-        });
-
-        pythonProcess.stderr.on('data', (data) => {
-            errorOutput += data.toString();
-        });
-
-        pythonProcess.on('close', (code) => {
-            if (code !== 0) {
-                console.error(`Retraining failed with code ${code}: ${errorOutput}`);
-                try {
-                    const errData = JSON.parse(errorOutput);
-                    return res.status(500).json(errData);
-                } catch (e) {
-                    return res.status(500).json({ 
-                        error: "Error retraining model",
-                        details: errorOutput
-                    });
-                }
-            }
-            
-            try {
-                const result = JSON.parse(output);
-                res.status(200).json(result);
-            } catch (e) {
-                res.status(200).json({
-                    status: "success",
-                    message: "Model retrained (output not parseable)",
-                    raw_output: output
-                });
-            }
-        });
-
-    } catch (error) {
-        console.error("Error in model retraining:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
 
 router.post("/create", authMiddleware, async (req, res) => {
   try {
@@ -242,10 +189,40 @@ router.post("/create", authMiddleware, async (req, res) => {
     await onEventCreated(event);
     
     await NotificationService.scheduleEventReminders(event);
-    
     await EventExpirationService.scheduleEventExpiration(event);
 
+    // Trigger model retraining after successful event creation
+    const pythonProcess = spawn('python', [
+      path.join(__dirname, '../recommendation_api.py'),
+      '--retrain'
+    ]);
+
+    let retrainOutput = '';
+    let retrainError = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      retrainOutput += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      retrainError += data.toString();
+      console.error(`Retrain stderr: ${data}`);
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code !== 0) {
+        console.error(`Model retraining failed with code ${code}`);
+        console.error(`Retrain error: ${retrainError}`);
+        // Note: We don't fail the event creation if retraining fails
+      } else {
+        console.log('Model retraining completed successfully');
+        console.log(`Retrain output: ${retrainOutput}`);
+      }
+    });
+
+    // Return the created event immediately, don't wait for retraining
     res.status(201).json(event);
+    
   } catch (error) {
     console.error("Error creating event:", error);
     res.status(400).json({ error: error.message });

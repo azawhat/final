@@ -137,17 +137,13 @@ class NotificationService {
       }
 
       const notification = {
-        title: `⏰ Event Reminder - ${eventName}`,
+        notification: `⏰ Event Reminder - ${eventName}`,
         body: `${eventName} starts in ${timeText}${eventLocation ? ` at ${eventLocation}` : ''}`
       };
 
       const data = {
-        type: 'event_reminder',
-        eventId: eventId.toString(),
-        eventName,
-        eventLocation: eventLocation || '',
-        reminderTime: reminderHours ? `${reminderHours}h` : `${reminderMinutes}m`,
-        timestamp: Date.now().toString()
+        title: `Event Reminder - ${eventName}`,
+        message: `Your event ${eventName} starts in ${timeText}`
       };
 
       const result = await sendNotificationToMultipleDevices(tokens, notification, data);
