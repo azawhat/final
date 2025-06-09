@@ -461,36 +461,75 @@ class NotificationService {
   /**
    * Verify that jobs were actually scheduled in the queue
    */
-  static async verifyScheduledJobs(eventId) {
-    try {
-      console.log(`\n🔍 Verifying scheduled jobs for event ${eventId}:`);
-      
-      const jobIds = [`${eventId}-24h`, `${eventId}-5h`, `${eventId}-15m`];
-      
-      for (const jobId of jobIds) {
-        const job = await eventReminderQueue.getJob(jobId);
-        if (job) {
-          const delay = job.opts.delay;
+/**
+ * Verify that jobs were actually scheduled in the queue - FIXED VERSION
+ */
+static async verifyScheduledJobs(eventId) {
+  try {
+    console.log(`\n🔍 Verifying scheduled jobs for event ${eventId}:`);
+    
+    const jobIds = [`${eventId}-24h`, `${eventId}-5h`, `${eventId}-15m`];
+    
+    for (const jobId of jobIds) {
+      const job = await eventReminderQueue.getJob(jobId);
+      if (job) {
+        // Fix: Check if delay exists and is a valid number
+        const delay = job.opts && typeof job.opts.delay === 'number' ? job.opts.delay : null;
+        
+        if (delay !== null && delay >= 0) {
           const executeAt = new Date(Date.now() + delay);
-          console.log(`   ✅ Job ${jobId} found - executes at: ${executeAt.toISOString()}`);
+          // Additional check to ensure the date is valid
+          if (!isNaN(executeAt.getTime())) {
+            console.log(`   ✅ Job ${jobId} found - executes at: ${executeAt.toISOString()}`);
+          } else {
+            console.log(`   ⚠️ Job ${jobId} found but has invalid execution time`);
+          }
         } else {
-          console.log(`   ❌ Job ${jobId} NOT found in queue`);
+          console.log(`   ⚠️ Job ${jobId} found but has no valid delay (delay: ${delay})`);
         }
+        
+        // Also log job data for debugging
+        console.log(`   📋 Job data: eventName=${job.data?.eventName}, reminderTime=${job.data?.reminderHours || job.data?.reminderMinutes}`);
+      } else {
+        console.log(`   ❌ Job ${jobId} NOT found in queue`);
       }
-      
-      // Also check waiting jobs
-      const waiting = await eventReminderQueue.getWaiting();
-      console.log(`\n📊 Queue status: ${waiting.length} waiting jobs`);
-      
-      const eventJobs = waiting.filter(job => 
-        job.data.eventId && job.data.eventId.toString() === eventId.toString()
-      );
-      console.log(`📊 Event-specific jobs in queue: ${eventJobs.length}`);
-      
-    } catch (error) {
-      console.error('Error verifying scheduled jobs:', error);
     }
+    
+    // Also check waiting jobs
+    const waiting = await eventReminderQueue.getWaiting();
+    console.log(`\n📊 Queue status: ${waiting.length} waiting jobs`);
+    
+    const eventJobs = waiting.filter(job => 
+      job.data.eventId && job.data.eventId.toString() === eventId.toString()
+    );
+    console.log(`📊 Event-specific jobs in queue: ${eventJobs.length}`);
+    
+    // Log event-specific job details
+    if (eventJobs.length > 0) {
+      console.log(`📋 Event jobs details:`);
+      eventJobs.forEach((job, index) => {
+        const delay = job.opts && typeof job.opts.delay === 'number' ? job.opts.delay : null;
+        const reminderType = job.data?.reminderHours ? `${job.data.reminderHours}h` : 
+                           job.data?.reminderMinutes ? `${job.data.reminderMinutes}m` : 'unknown';
+        
+        if (delay !== null && delay >= 0) {
+          const executeAt = new Date(Date.now() + delay);
+          if (!isNaN(executeAt.getTime())) {
+            console.log(`   ${index + 1}. ${job.id} (${reminderType}) - executes at: ${executeAt.toISOString()}`);
+          } else {
+            console.log(`   ${index + 1}. ${job.id} (${reminderType}) - invalid execution time`);
+          }
+        } else {
+          console.log(`   ${index + 1}. ${job.id} (${reminderType}) - no valid delay`);
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error verifying scheduled jobs:', error);
+    console.error('Stack trace:', error.stack);
   }
+}
 
   /**
    * Enhanced event reminder processing with detailed logging and proper date handling

@@ -271,7 +271,7 @@ router.get("/event/:eventId", async (req, res) => {
     if (!event) {
       return res.status(404).json({ error: "Event not found" });
     }
-
+    
     const posts = await Post.find({ eventId })
       .populate('authorId', 'name surname username')
 
