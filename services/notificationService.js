@@ -1,10 +1,56 @@
-// Enhanced NotificationService with comprehensive debugging and data parsing
+// Enhanced NotificationService with proper date parsing and fixed reminder scheduling
 const { sendNotificationToDevice, sendNotificationToMultipleDevices } = require('../config/firebaseConfig');
 const { eventReminderQueue } = require('../config/queueConfig');
 const User = require('../models/User');
 const Event = require('../models/Event');
 
 class NotificationService {
+  /**
+   * Parse and validate date string
+   * @param {string|Date} dateInput - Date string or Date object
+   * @returns {Date} Parsed Date object
+   */
+  static parseEventDate(dateInput) {
+    try {
+      console.log(`📅 Parsing date input:`, dateInput, typeof dateInput);
+      
+      if (dateInput instanceof Date) {
+        return dateInput;
+      }
+      
+      if (typeof dateInput === 'string') {
+        // Handle the specific format "2025-06-10T03:54"
+        // Add seconds and timezone if missing for proper ISO format
+        let isoString = dateInput;
+        
+        // Check if it's in format "YYYY-MM-DDTHH:mm" (missing seconds)
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dateInput)) {
+          isoString = `${dateInput}:00.000Z`; // Add seconds, milliseconds, and UTC timezone
+          console.log(`🔧 Converted to ISO format: ${isoString}`);
+        }
+        // Check if it's missing timezone info
+        else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(dateInput)) {
+          isoString = `${dateInput}.000Z`; // Add timezone
+          console.log(`🔧 Added timezone: ${isoString}`);
+        }
+        
+        const parsedDate = new Date(isoString);
+        
+        if (isNaN(parsedDate.getTime())) {
+          throw new Error(`Invalid date string: ${dateInput}`);
+        }
+        
+        console.log(`✅ Successfully parsed date: ${parsedDate.toISOString()}`);
+        return parsedDate;
+      }
+      
+      throw new Error(`Invalid date input type: ${typeof dateInput}`);
+    } catch (error) {
+      console.error(`❌ Date parsing error:`, error);
+      throw new Error(`Failed to parse date: ${dateInput} - ${error.message}`);
+    }
+  }
+
   /**
    * Parse notification data based on type
    * @param {Object} notificationData - Raw notification data from FCM
@@ -88,8 +134,8 @@ class NotificationService {
         actionType: 'view_event',
         // Parse reminder time for display
         reminderDisplay: this.formatReminderTime(data.reminderTime),
-        // Calculate event start time if available
-        eventStartTime: data.eventStartDate ? new Date(data.eventStartDate) : null
+        // Calculate event start time if available - with proper parsing
+        eventStartTime: data.eventStartDate ? this.parseEventDate(data.eventStartDate) : null
       }
     };
   }
@@ -125,7 +171,6 @@ class NotificationService {
         eventName: data.eventName,
         actionType: 'view_cancelled_event',
         isCancellation: true,
-        // Mark for potential removal from user's event list
         shouldRemoveFromList: true
       }
     };
@@ -145,7 +190,6 @@ class NotificationService {
         updatedFields: data.updatedFields ? JSON.parse(data.updatedFields) : [],
         actionType: 'view_event',
         isUpdate: true,
-        // Determine if this is a critical update (time/location change)
         isCriticalUpdate: this.isCriticalEventUpdate(data.updatedFields)
       }
     };
@@ -203,8 +247,6 @@ class NotificationService {
 
   /**
    * Handle notification tap/click action
-   * @param {Object} parsedNotification - Parsed notification data
-   * @param {Function} navigationCallback - Function to handle navigation
    */
   static handleNotificationAction(parsedNotification, navigationCallback) {
     try {
@@ -250,8 +292,6 @@ class NotificationService {
 
   /**
    * Get notification display configuration
-   * @param {Object} parsedNotification - Parsed notification data
-   * @returns {Object} Display configuration
    */
   static getNotificationDisplayConfig(parsedNotification) {
     const { type, parsedData } = parsedNotification;
@@ -304,8 +344,6 @@ class NotificationService {
 
   /**
    * Create notification history entry
-   * @param {string} userId - User ID
-   * @param {Object} parsedNotification - Parsed notification data
    */
   static async createNotificationHistory(userId, parsedNotification) {
     try {
@@ -334,25 +372,28 @@ class NotificationService {
   }
 
   /**
-   * Schedule automatic event reminder notifications with enhanced debugging
+   * Schedule ONLY the required event reminder notifications (24h, 5h, 15m)
+   * with enhanced date parsing and debugging
    * @param {Object} event - Event object
    */
   static async scheduleEventReminders(event) {
     try {
       console.log(`🔔 Starting to schedule reminders for event: ${event.name} (ID: ${event._id})`);
+      console.log(`📅 Raw startDate:`, event.startDate, typeof event.startDate);
       
-      const eventStartTime = new Date(event.startDate);
+      // Parse the event start date properly
+      const eventStartTime = this.parseEventDate(event.startDate);
       const now = new Date();
       
-      console.log(`📅 Event start time: ${eventStartTime.toISOString()}`);
+      console.log(`📅 Parsed event start time: ${eventStartTime.toISOString()}`);
       console.log(`⏰ Current time: ${now.toISOString()}`);
       console.log(`⏳ Time until event: ${Math.round((eventStartTime - now) / (1000 * 60 * 60))} hours`);
 
-      // Time intervals for automatic reminders (in milliseconds)
+      // ONLY the 3 required reminder intervals
       const reminderIntervals = [
-        { hours: 24, delay: 24 * 60 * 60 * 1000 },
-        { hours: 5, delay: 5 * 60 * 60 * 1000 },
-        { minutes: 15, delay: 15 * 60 * 1000 }
+        { hours: 24, delay: 24 * 60 * 60 * 1000, label: '24h' },
+        { hours: 5, delay: 5 * 60 * 60 * 1000, label: '5h' },
+        { minutes: 15, delay: 15 * 60 * 1000, label: '15m' }
       ];
 
       let scheduledCount = 0;
@@ -360,7 +401,7 @@ class NotificationService {
       for (const interval of reminderIntervals) {
         const reminderTime = new Date(eventStartTime.getTime() - interval.delay);
         
-        console.log(`\n📋 Processing ${interval.hours ? interval.hours + 'h' : interval.minutes + 'm'} reminder:`);
+        console.log(`\n📋 Processing ${interval.label} reminder:`);
         console.log(`   Reminder time: ${reminderTime.toISOString()}`);
         console.log(`   Is future: ${reminderTime > now}`);
         
@@ -368,23 +409,25 @@ class NotificationService {
         if (reminderTime > now) {
           const delay = reminderTime.getTime() - now.getTime();
           
-          const jobId = interval.hours 
-            ? `${event._id}-${interval.hours}h`
-            : `${event._id}-${interval.minutes}m`;
+          const jobId = `${event._id}-${interval.label}`;
 
           console.log(`   ⏱️ Scheduling job ${jobId} with ${Math.round(delay / 1000)} seconds delay`);
           console.log(`   📍 Will execute at: ${new Date(now.getTime() + delay).toISOString()}`);
 
-          const job = await eventReminderQueue.add('send-event-reminder', {
+          const jobData = {
             eventId: event._id,
             eventName: event.name,
             eventLocation: event.location,
-            eventStartDate: event.startDate,
-            reminderHours: interval.hours,
-            reminderMinutes: interval.minutes,
+            eventStartDate: eventStartTime.toISOString(), // Ensure consistent format
+            reminderHours: interval.hours || null,
+            reminderMinutes: interval.minutes || null,
             scheduledAt: now.toISOString(),
             reminderTime: reminderTime.toISOString()
-          }, {
+          };
+
+          console.log(`   📋 Job data:`, jobData);
+
+          const job = await eventReminderQueue.add('send-event-reminder', jobData, {
             delay: delay,
             jobId: jobId,
             removeOnComplete: true,
@@ -410,6 +453,7 @@ class NotificationService {
       
     } catch (error) {
       console.error('❌ Error scheduling event reminders:', error);
+      console.error('Stack trace:', error.stack);
       throw error;
     }
   }
@@ -427,7 +471,7 @@ class NotificationService {
         const job = await eventReminderQueue.getJob(jobId);
         if (job) {
           const delay = job.opts.delay;
-          const executeAt = new Date(job.processedOn + delay);
+          const executeAt = new Date(Date.now() + delay);
           console.log(`   ✅ Job ${jobId} found - executes at: ${executeAt.toISOString()}`);
         } else {
           console.log(`   ❌ Job ${jobId} NOT found in queue`);
@@ -449,7 +493,7 @@ class NotificationService {
   }
 
   /**
-   * Enhanced event reminder processing with detailed logging
+   * Enhanced event reminder processing with detailed logging and proper date handling
    */
   static async processEventReminder(jobData) {
     try {
@@ -518,7 +562,7 @@ class NotificationService {
         eventId: eventId.toString(),
         eventName,
         eventLocation: eventLocation || '',
-        eventStartDate: event.startDate.toISOString(),
+        eventStartDate: jobData.eventStartDate, // Use the properly formatted date from job data
         reminderTime: reminderHours ? `${reminderHours}h` : `${reminderMinutes}m`,
         reminderHours: reminderHours ? reminderHours.toString() : null,
         reminderMinutes: reminderMinutes ? reminderMinutes.toString() : null,
@@ -599,7 +643,7 @@ class NotificationService {
       if (waiting.length > 0) {
         console.log(`\n⏳ Waiting Jobs:`);
         waiting.forEach((job, index) => {
-          const executeAt = new Date(job.processedOn + job.opts.delay);
+          const executeAt = new Date(Date.now() + job.opts.delay);
           console.log(`   ${index + 1}. ${job.id} - ${job.data.eventName} - executes at: ${executeAt.toISOString()}`);
         });
       }
@@ -613,7 +657,7 @@ class NotificationService {
           id: job.id,
           eventName: job.data.eventName,
           reminderTime: job.data.reminderHours ? `${job.data.reminderHours}h` : `${job.data.reminderMinutes}m`,
-          executeAt: new Date(job.processedOn + job.opts.delay)
+          executeAt: new Date(Date.now() + job.opts.delay)
         }))
       };
     } catch (error) {
@@ -621,8 +665,6 @@ class NotificationService {
       throw error;
     }
   }
-
-
 }
 
 module.exports = NotificationService;

@@ -87,6 +87,7 @@ router.get("/", authMiddleware, async (req, res) => {
             };
             return {
               ...event.toObject(),
+
               hybridScore: scores.hybridScore
             };
           })
@@ -461,7 +462,7 @@ router.put("/update/:eventId", authMiddleware, async (req, res) => {
 
     console.log('Event updated successfully:', updatedEvent.name);
 
-    res.status(200);
+    res.status(200).json();
 
   } catch (error) {
     console.error(" Error updating event:", error);

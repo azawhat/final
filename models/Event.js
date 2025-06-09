@@ -11,7 +11,7 @@ const EventSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }, 
   location: { type: String },
   locationCoordinates: { type: String },
-  eventRating: { type: Number, default: 0 },
+  eventRating: { type: Number},
   ratingCount: { type: Number, default: 0 },
   media: [{ type : String }],
   // Add the missing participantsRating field
