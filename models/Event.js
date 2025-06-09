@@ -26,9 +26,7 @@ const EventSchema = new mongoose.Schema({
     username: { type: String, required: true },
   },
   participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-  attendance: [{
-    _id: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
-  }],
+  attendance: [{type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   maxParticipants: { type: Number },
   startDate: { type: String, required: true },
   posts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }]

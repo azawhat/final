@@ -140,78 +140,25 @@ router.post("/unlike/:postId", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/media/:eventId", authMiddleware, async (req, res) => {
-  try {
-    const { eventId } = req.params;
-    const { media } = req.body;
-    const userId = req.user.id;
-
-    if (!mongoose.Types.ObjectId.isValid(eventId)) {
-      return res.status(400).json({ error: "Invalid eventId" });
-    }
-
-    if (!media || !Array.isArray(media) || media.length === 0) {
-      return res.status(400).json({ error: "Media array is required and cannot be empty" });
-    }
-
-    const isValidMedia = media.every(item => 
-      typeof item === 'object' && 
-      typeof item.type === 'string' && 
-      item.type.trim().length > 0
-    );
-
-    if (!isValidMedia) {
-      return res.status(400).json({ 
-        error: "Each media item must have a valid type string" 
-      });
-    }
-
-    const event = await Event.findById(eventId);
-    if (!event) {
-      return res.status(404).json({ error: "Event not found" });
-    }
-
-    const isCreator = event.creator._id.toString() === userId.toString();
-    if (!isCreator) {
-      return res.status(403).json({ 
-        error: "Only the event creator can upload media" 
-      });
-    }
-
-    const sanitizedMedia = media.map(item => ({ type: item.type.trim() }));
-    
-    await Event.findByIdAndUpdate(
-      eventId,
-      { $push: { media: { $each: sanitizedMedia } } },
-      { new: true }
-    );
-
-    const updatedEvent = await Event.findById(eventId);
-    
-    res.status(200).json(updatedEvent.media || []);
-  } catch (error) {
-    console.error("Error uploading media:", error);
-    if (error.name === "ValidationError") {
-      return res.status(400).json({ error: error.message });
-    }
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
 router.get("/media/:eventId", async (req, res) => {
   try {
     const { eventId } = req.params;
-
+    
     if (!mongoose.Types.ObjectId.isValid(eventId)) {
       return res.status(400).json({ error: "Invalid eventId" });
     }
 
-    const event = await Event.findById(eventId).select('media');
-    if (!event) {
-      return res.status(404).json({ error: "Event not found" });
-    }
+    const posts = await Post.find({ 
+      eventId: eventId,
+      media: { $exists: true, $not: { $size: 0 } } 
+    }).select('media');
 
-    res.status(200).json(event.media || []);
+    const allMedia = posts.reduce((acc, post) => {
+      return acc.concat(post.media || []);
+    }, []);
+
+    res.status(200).json(allMedia);
+    
   } catch (error) {
     console.error("Error fetching media for event:", error);
     res.status(500).json({ error: "Internal server error" });
